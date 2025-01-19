@@ -1,7 +1,6 @@
 import * as solaceModule from 'solclientjs';
 import { supabase } from "@/integrations/supabase/client";
 
-// Create a local reference to the solace module after initialization
 const factoryProps = new solaceModule.SolclientFactoryProperties();
 factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
 solaceModule.SolclientFactory.init(factoryProps);
@@ -28,17 +27,15 @@ class SolaceClient {
         throw new Error('Missing Solace configuration');
       }
 
-      // Create session
       const properties = new solaceModule.SessionProperties({
         url: SOLACE_HOST_URL,
         vpnName: SOLACE_VPN_NAME,
         userName: SOLACE_USERNAME,
-        password: '', // We'll handle this securely through the edge function
+        password: '', // Handled through edge function
       });
 
       this.session = solaceModule.SolclientFactory.createSession(properties);
 
-      // Define event listeners
       if (this.session) {
         this.session.on(solaceModule.SessionEventCode.UP_NOTICE, () => {
           this.connected = true;
@@ -55,7 +52,6 @@ class SolaceClient {
           console.log('Solace client disconnected');
         });
 
-        // Connect
         await new Promise<void>((resolve, reject) => {
           try {
             this.session?.connect();
@@ -100,22 +96,18 @@ class SolaceClient {
     }
   }
 
-  subscribe(topic: string, callback: (message: any) => void): void {
+  subscribe(topic: string, callback: (message: solaceModule.Message) => void): void {
     if (!this.session || !this.connected) {
       throw new Error('Not connected to Solace');
     }
 
     try {
-      const messageCallback = (session: solaceModule.Session, message: solaceModule.Message) => {
-        callback(message);
-      };
-
       const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
       this.session.subscribe(
         topicDestination,
-        true, // Generate confirmation when subscription is added successfully
-        messageCallback,
-        10 // Request confirm timeout in seconds
+        true,
+        callback,
+        10000
       );
     } catch (error) {
       console.error('Error subscribing to topic:', error);

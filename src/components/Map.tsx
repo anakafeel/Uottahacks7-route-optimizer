@@ -13,11 +13,22 @@ interface MapProps {
 
 type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
 
+interface TrafficUpdate {
+  location: {
+    lat: number;
+    lng: number;
+  };
+  type: string;
+  severity: string;
+  description: string;
+}
+
 const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const { toast } = useToast();
   const markers = useRef<{ [key: string]: L.Marker }>({});
+  const trafficMarkers = useRef<L.Marker[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const initialized = useRef(false);
 
@@ -27,21 +38,39 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       try {
         await solaceClient.connect();
         
-        // Subscribe to relevant topics
+        // Subscribe to traffic updates
         solaceClient.subscribe('traffic/updates', (message) => {
-          console.log('Received traffic update:', message);
-          // Handle traffic updates
+          const trafficData = JSON.parse(message.getBinaryAttachment()) as TrafficUpdate;
+          handleTrafficUpdate(trafficData);
         });
+
+        // Subscribe to route updates
+        solaceClient.subscribe('routes/updates', (message) => {
+          const routeData = JSON.parse(message.getBinaryAttachment());
+          console.log('Received route update:', routeData);
+          // Handle route updates (e.g., display new routes, update existing ones)
+        });
+
+        // Publish current map bounds to help other components
+        if (map.current) {
+          const bounds = map.current.getBounds();
+          solaceClient.publish('map/bounds', JSON.stringify({
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest()
+          }));
+        }
 
         toast({
           title: "Connected to Solace",
-          description: "Real-time messaging initialized",
+          description: "Real-time traffic updates enabled",
         });
       } catch (error) {
         console.error('Failed to connect to Solace:', error);
         toast({
           title: "Connection Error",
-          description: "Failed to initialize real-time messaging",
+          description: "Failed to initialize real-time updates",
           variant: "destructive",
         });
       }
@@ -54,6 +83,44 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     };
   }, [toast]);
 
+  // Handle incoming traffic updates
+  const handleTrafficUpdate = (update: TrafficUpdate) => {
+    if (!map.current) return;
+
+    // Create a traffic incident icon
+    const trafficIcon = L.divIcon({
+      className: 'traffic-marker',
+      html: `<div class="w-6 h-6 rounded-full bg-destructive/80 border-2 border-white flex items-center justify-center">
+        <span class="text-xs text-white">!</span>
+      </div>`,
+      iconSize: [24, 24]
+    });
+
+    // Add new traffic marker
+    const marker = L.marker([update.location.lat, update.location.lng], {
+      icon: trafficIcon
+    })
+      .bindPopup(`
+        <div class="p-2">
+          <h3 class="font-bold">${update.type}</h3>
+          <p class="text-sm">${update.description}</p>
+          <span class="text-xs text-destructive">Severity: ${update.severity}</span>
+        </div>
+      `)
+      .addTo(map.current);
+
+    trafficMarkers.current.push(marker);
+
+    // Remove old markers after 5 minutes
+    setTimeout(() => {
+      if (map.current && marker) {
+        marker.remove();
+        trafficMarkers.current = trafficMarkers.current.filter(m => m !== marker);
+      }
+    }, 5 * 60 * 1000);
+  };
+
+  // Initialize map
   useEffect(() => {
     if (!mapContainer.current || initialized.current) return;
 
@@ -122,7 +189,9 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           } else {
             const driverIcon = L.divIcon({
               className: 'driver-marker',
-              html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
+              html: `<div class="w-5 h-5 rounded-full bg-secondary border-2 border-white flex items-center justify-center">
+                <span class="text-xs text-white">D</span>
+              </div>`,
               iconSize: [20, 20]
             });
 
