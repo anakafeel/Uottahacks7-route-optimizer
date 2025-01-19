@@ -24,14 +24,21 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     try {
       console.log('Route selection:', { start, end });
       
-      // Call the optimize-route Edge Function directly first
+      // Calculate distance and estimated duration based on coordinates
+      const distance = map.current?.distance([start.lat, start.lng], [end.lat, end.lng]) || 0;
+      const estimatedDuration = Math.round((distance / 1000) * 3); // Rough estimate: 3 minutes per km
+
+      // Call the optimize-route Edge Function with actual route data
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: {
           route: {
             start_lat: start.lat,
             start_lng: start.lng,
             end_lat: end.lat,
-            end_lng: end.lng
+            end_lng: end.lng,
+            estimated_duration: estimatedDuration,
+            distance: (distance / 1000).toFixed(2), // Convert to km
+            traffic_level: 'Medium' // Default traffic level
           }
         },
       });
@@ -50,7 +57,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         }));
       } catch (solaceError) {
         console.warn('Solace publish failed (non-critical):', solaceError);
-        // Continue execution even if Solace fails
       }
 
       if (onRouteUpdate) {
