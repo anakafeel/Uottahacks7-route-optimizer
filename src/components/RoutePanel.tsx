@@ -15,13 +15,14 @@ interface RoutePanelProps {
 const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelProps) => {
   const { toast } = useToast();
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationResults, setOptimizationResults] = useState<any>(null);
 
   const handleOptimizeRoute = async () => {
     try {
       setIsOptimizing(true);
       toast({
         title: "Optimizing Route",
-        description: "Calculating best route using AI...",
+        description: "Calculating best route using Groq AI...",
       });
 
       // Get current traffic data
@@ -32,21 +33,34 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
       if (trafficError) throw trafficError;
 
+      console.log('Sending optimization request with:', { currentRoute, trafficData });
+
       // Call the optimize-route Edge Function
-      const { data: optimizationData, error } = await supabase.functions.invoke('optimize-route', {
+      const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: {
           route: currentRoute,
           trafficData,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
+
+      console.log('Received optimization response:', data);
+
+      if (!data?.recommendations) {
+        throw new Error('Invalid response format from optimization service');
+      }
+
+      setOptimizationResults(data.recommendations);
 
       // Update route with AI recommendations
       const { error: updateError } = await supabase
         .from('routes')
         .update({
-          traffic_prediction: optimizationData.recommendations,
+          traffic_prediction: data.recommendations,
           status: 'optimized'
         })
         .eq('id', currentRoute?.id);
@@ -76,26 +90,46 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
           <Clock className="w-5 h-5 text-accent" />
-          <span>Estimated Time: 25 mins</span>
+          <span>Estimated Time: {currentRoute?.estimated_duration || 25} mins</span>
         </div>
         
         <div className="flex items-center space-x-2">
           <Navigation className="w-5 h-5 text-secondary" />
-          <span>Distance: 12.5 km</span>
+          <span>Distance: {currentRoute?.distance || '12.5'} km</span>
         </div>
 
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-destructive" />
-          <span>Traffic Alert: Medium</span>
+          <span>Traffic Alert: {currentRoute?.traffic_level || 'Medium'}</span>
         </div>
       </div>
 
       <ScrollArea className="h-48 mt-4">
         <div className="space-y-2">
           <h4 className="font-medium">AI Recommendations</h4>
-          <p className="text-sm text-muted-foreground">
-            Route optimization powered by Groq AI
-          </p>
+          {optimizationResults ? (
+            <div className="space-y-3 text-sm">
+              {optimizationResults.alternatives?.map((alt: any, index: number) => (
+                <div key={index} className="p-2 bg-accent/10 rounded">
+                  <p>{alt.description}</p>
+                  <p className="text-xs text-muted-foreground">Est. Time: {alt.estimated_time} mins</p>
+                </div>
+              ))}
+              {optimizationResults.delays && (
+                <div className="p-2 bg-destructive/10 rounded">
+                  <p>Expected Delay: {optimizationResults.delays.minutes} mins</p>
+                  <p className="text-xs text-muted-foreground">Severity: {optimizationResults.delays.severity}</p>
+                </div>
+              )}
+              {optimizationResults.weather_impact && (
+                <p className="text-xs text-muted-foreground">{optimizationResults.weather_impact}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Click optimize to get AI-powered recommendations
+            </p>
+          )}
         </div>
       </ScrollArea>
 
