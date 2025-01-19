@@ -11,6 +11,7 @@ class SolaceClient {
   private connected: boolean = false;
   private connecting: boolean = false;
   private connectionTimeout: number = 10000; // 10 seconds timeout
+  private subscriptions: Map<string, (message: solaceModule.Message) => void> = new Map();
 
   private constructor() {}
 
@@ -23,6 +24,7 @@ class SolaceClient {
 
   async connect(): Promise<void> {
     if (this.connected || this.connecting) {
+      console.log('Already connected or connecting to Solace');
       return;
     }
 
@@ -33,8 +35,15 @@ class SolaceClient {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
       if (configError || !config?.SOLACE_HOST_URL || !config?.SOLACE_VPN_NAME || !config?.SOLACE_USERNAME) {
+        console.error('Invalid Solace configuration:', { config, error: configError });
         throw new Error('Invalid Solace configuration');
       }
+
+      console.log('Retrieved Solace configuration:', {
+        url: config.SOLACE_HOST_URL,
+        vpnName: config.SOLACE_VPN_NAME,
+        userName: config.SOLACE_USERNAME
+      });
 
       const properties = new solaceModule.SessionProperties({
         url: config.SOLACE_HOST_URL,
@@ -43,6 +52,11 @@ class SolaceClient {
         password: '', // Handled through edge function
         connectTimeoutInMsecs: this.connectionTimeout,
         reconnectRetries: 3,
+        generateSendTimestamps: true,
+        generateReceiveTimestamps: true,
+        reapplySubscriptions: true,
+        keepAliveIntervalInMsecs: 3000,
+        keepAliveIntervalsLimit: 10,
       });
 
       this.session = solaceModule.SolclientFactory.createSession(properties);
@@ -62,6 +76,12 @@ class SolaceClient {
           this.connected = true;
           this.connecting = false;
           console.log('Solace client connected successfully');
+          
+          // Reapply subscriptions if any
+          this.subscriptions.forEach((callback, topic) => {
+            this.resubscribe(topic, callback);
+          });
+          
           resolve();
         });
 
@@ -83,10 +103,12 @@ class SolaceClient {
         });
 
         try {
+          console.log('Attempting to connect session...');
           this.session.connect();
         } catch (error) {
           clearTimeout(connectionTimeout);
           this.connecting = false;
+          console.error('Error during session connect:', error);
           reject(error);
         }
       });
@@ -94,6 +116,18 @@ class SolaceClient {
       this.connecting = false;
       console.error('Error connecting to Solace:', error);
       throw error;
+    }
+  }
+
+  private async resubscribe(topic: string, callback: (message: solaceModule.Message) => void) {
+    try {
+      if (this.session && this.connected) {
+        console.log(`Resubscribing to topic: ${topic}`);
+        const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
+        await this.session.subscribe(topicDestination, true, callback, 10000);
+      }
+    } catch (error) {
+      console.error(`Error resubscribing to topic ${topic}:`, error);
     }
   }
 
@@ -107,6 +141,7 @@ class SolaceClient {
       this.session = null;
       this.connected = false;
       this.connecting = false;
+      this.subscriptions.clear();
     }
   }
 
@@ -124,6 +159,7 @@ class SolaceClient {
         callback,
         10000
       );
+      this.subscriptions.set(topic, callback);
     } catch (error) {
       console.error('Error subscribing to topic:', error);
       throw error;
