@@ -20,7 +20,7 @@ const Index = () => {
   };
 
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative w-full h-full">
       <Map onRouteUpdate={handleRouteUpdate} />
       <RoutePanel currentRoute={currentRoute} />
     </div>

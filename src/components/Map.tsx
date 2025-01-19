@@ -11,7 +11,7 @@ const Map: React.FC<MapProps> = ({ onRouteUpdate }) => {
 
   return (
     <div className="absolute inset-0">
-      <div id="map-container" className="w-full h-full" />
+      <div id="map-container" className="h-full" />
     </div>
   );
 };
