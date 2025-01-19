@@ -106,15 +106,14 @@ class SolaceClient {
     }
 
     try {
-      const messageCallback = (session: solaceModule.Session, message: solaceModule.Message) => {
-        callback(message);
-      };
-
       this.session.subscribe(
         solaceModule.SolclientFactory.createTopicDestination(topic),
         true,
         topic,
-        messageCallback
+        0, // correlation key (number expected by the Solace API)
+        (session: solaceModule.Session, message: solaceModule.Message) => {
+          callback(message);
+        }
       );
     } catch (error) {
       console.error('Error subscribing to topic:', error);
