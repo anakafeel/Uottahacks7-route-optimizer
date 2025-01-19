@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { solaceClient } from '@/utils/solaceClient';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SolaceConnectionProps {
   onConnect?: () => void;
