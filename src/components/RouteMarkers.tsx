@@ -18,9 +18,9 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
     const markerLabel = location.type === 'start' ? 'S' : 'E';
     
     const icon = L.divIcon({
-      className: 'bg-white rounded-full border-2 flex items-center justify-center',
+      className: '',
       html: `
-        <div class="w-6 h-6 rounded-full bg-${markerColor}-500 text-white flex items-center justify-center text-xs font-bold">
+        <div style="width: 24px; height: 24px; background-color: ${markerColor}; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
           ${markerLabel}
         </div>
       `,

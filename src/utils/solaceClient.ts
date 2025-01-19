@@ -9,6 +9,7 @@ class SolaceClient {
   private static instance: SolaceClient;
   private session: solaceModule.Session | null = null;
   private connected: boolean = false;
+  private connecting: boolean = false;
 
   private constructor() {}
 
@@ -20,6 +21,12 @@ class SolaceClient {
   }
 
   async connect(): Promise<void> {
+    if (this.connected || this.connecting) {
+      return;
+    }
+
+    this.connecting = true;
+
     try {
       const { data: { SOLACE_HOST_URL, SOLACE_VPN_NAME, SOLACE_USERNAME } } = await supabase.functions.invoke('get-solace-config');
 
@@ -39,16 +46,19 @@ class SolaceClient {
       if (this.session) {
         this.session.on(solaceModule.SessionEventCode.UP_NOTICE, () => {
           this.connected = true;
+          this.connecting = false;
           console.log('Solace client connected');
         });
 
         this.session.on(solaceModule.SessionEventCode.CONNECT_FAILED_ERROR, () => {
           this.connected = false;
+          this.connecting = false;
           console.error('Solace connection failed');
         });
 
         this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
           this.connected = false;
+          this.connecting = false;
           console.log('Solace client disconnected');
         });
 
@@ -57,11 +67,13 @@ class SolaceClient {
             this.session?.connect();
             resolve();
           } catch (error) {
+            this.connecting = false;
             reject(error);
           }
         });
       }
     } catch (error) {
+      this.connecting = false;
       console.error('Error connecting to Solace:', error);
       throw error;
     }
@@ -76,6 +88,7 @@ class SolaceClient {
       this.session.disconnect();
       this.session = null;
       this.connected = false;
+      this.connecting = false;
     }
   }
 

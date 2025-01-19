@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { solaceClient } from '@/utils/solaceClient';
 import type { TrafficUpdate } from '@/types/map';
@@ -10,9 +10,13 @@ interface SolaceHandlerProps {
 
 const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteUpdate }) => {
   const { toast } = useToast();
+  const connectionAttempted = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const initSolace = async () => {
+      if (connectionAttempted.current) return;
+      connectionAttempted.current = true;
+
       try {
         await solaceClient.connect();
         console.log('Connected to Solace PubSub+');
@@ -58,8 +62,10 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
     initSolace();
 
     return () => {
-      console.log('Disconnecting from Solace PubSub+');
-      solaceClient.disconnect();
+      if (solaceClient.isConnected()) {
+        console.log('Disconnecting from Solace PubSub+');
+        solaceClient.disconnect();
+      }
     };
   }, [onTrafficUpdate, onRouteUpdate, toast]);
 
