@@ -1,4 +1,5 @@
 import solace from 'solclientjs';
+import type { SolaceConfig } from './types';
 
 export const CONNECTION_TIMEOUT = 30000;
 export const MAX_RECONNECT_ATTEMPTS = 5;
@@ -10,12 +11,7 @@ export const initializeSolaceFactory = () => {
   solace.SolclientFactory.init(factoryProps);
 };
 
-export const sessionProperties = (config: {
-  url: string;
-  vpnName: string;
-  userName: string;
-  password: string;
-}) => {
+export const sessionProperties = (config: SolaceConfig) => {
   console.log('Creating Solace session with config:', {
     url: config.url,
     vpnName: config.vpnName,
@@ -44,5 +40,3 @@ export const sessionProperties = (config: {
     }
   };
 };
-
-export const createSessionProperties = sessionProperties;

@@ -1,6 +1,6 @@
 import * as solaceModule from 'solclientjs';
 import { supabase } from "@/integrations/supabase/client";
-import { initializeSolaceFactory, createSessionProperties } from './config';
+import { initializeSolaceFactory, sessionProperties } from './config';
 import type { MessageCallback } from './types';
 
 class SolaceClient {
@@ -39,7 +39,7 @@ class SolaceClient {
 
       console.log('Retrieved Solace configuration successfully');
 
-      const properties = createSessionProperties({
+      const properties = sessionProperties({
         url: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
         userName: config.SOLACE_USERNAME,

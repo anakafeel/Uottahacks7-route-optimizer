@@ -1,6 +1,4 @@
-import * as solaceModule from 'solclientjs';
-
-export type MessageCallback = (message: solaceModule.Message) => void;
+import * as solace from 'solclientjs';
 
 export interface SolaceConfig {
   url: string;
@@ -9,9 +7,11 @@ export interface SolaceConfig {
   password: string;
 }
 
+export type MessageCallback = (message: solace.Message) => void;
+
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+
 export interface SolaceMessage {
   topic: string;
   payload: any;
 }
-
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
