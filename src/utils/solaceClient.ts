@@ -87,7 +87,7 @@ class SolaceClient {
         });
 
         // Add more detailed event logging
-        this.session.on(solace.SessionEventCode.CONNECTING, () => {
+        this.session.on(solace.SessionEventCode.CONNECTING_EVENT, () => {
           console.log('Connecting to Solace...');
         });
 
