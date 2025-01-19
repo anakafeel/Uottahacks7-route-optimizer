@@ -10,7 +10,7 @@ class SolaceClient {
   private session: solaceModule.Session | null = null;
   private connected: boolean = false;
   private connecting: boolean = false;
-  private connectionTimeout: number = 30000; // Increased timeout to 30 seconds
+  private connectionTimeout: number = 30000; // 30 seconds timeout
   private subscriptions: Map<string, (message: solaceModule.Message) => void> = new Map();
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
@@ -90,14 +90,6 @@ class SolaceClient {
           console.log('Successfully connected to Solace');
           this.reapplySubscriptions();
           resolve();
-        });
-
-        this.session.on(solaceModule.SessionEventCode.CONNECTING, () => {
-          console.log('Connecting to Solace...');
-        });
-
-        this.session.on(solaceModule.SessionEventCode.RECONNECTING_NOTICE, () => {
-          console.log('Reconnecting to Solace...');
         });
 
         this.session.on(solaceModule.SessionEventCode.CONNECT_FAILED_ERROR, (sessionEvent) => {
