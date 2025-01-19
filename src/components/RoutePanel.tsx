@@ -22,7 +22,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
       setIsOptimizing(true);
       toast({
         title: "Optimizing Route",
-        description: "Calculating best route using Groq AI...",
+        description: "Analyzing route using Groq AI...",
       });
 
       // Get current traffic data
@@ -56,20 +56,10 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
       setOptimizationResults(data.recommendations);
 
-      // Update route with AI recommendations
-      const { error: updateError } = await supabase
-        .from('routes')
-        .update({
-          traffic_prediction: data.recommendations,
-          status: 'optimized'
-        })
-        .eq('id', currentRoute?.id);
-
-      if (updateError) throw updateError;
-
       toast({
         title: "Route Optimized",
-        description: "New recommendations available",
+        description: "AI recommendations ready",
+        duration: 3000,
       });
     } catch (error) {
       console.error('Error optimizing route:', error);
