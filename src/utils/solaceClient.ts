@@ -1,4 +1,5 @@
 import * as solaceModule from 'solclientjs';
+import { supabase } from "@/integrations/supabase/client";
 
 const factoryProps = new solaceModule.SolclientFactoryProperties();
 factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
