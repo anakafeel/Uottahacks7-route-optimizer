@@ -46,20 +46,23 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           description: "Ready to start route optimization",
         });
 
-        // If we need to update the route, pass only serializable data
+        // Only pass serializable data in the callback
         if (onRouteUpdate) {
-          onRouteUpdate({
+          const serializedData = {
             status: 'loaded',
-            center: [-74.5, 40],
-            zoom: 9
-          });
+            center: map.current?.getCenter().toArray(),
+            zoom: map.current?.getZoom(),
+            bounds: map.current?.getBounds().toArray()
+          };
+          onRouteUpdate(serializedData);
         }
       });
 
       map.current.on('error', (e) => {
+        const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
         toast({
           title: "Map Error",
-          description: e.error?.message || "An error occurred while loading the map",
+          description: errorMessage,
           variant: "destructive",
         });
       });
@@ -79,7 +82,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         map.current = null;
       }
     };
-  }, []);
+  }, [toast, onRouteUpdate]);
 
   return (
     <div className="relative w-full h-screen">
