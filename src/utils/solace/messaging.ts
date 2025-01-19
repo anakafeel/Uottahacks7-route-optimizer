@@ -12,9 +12,10 @@ class Messaging extends Paho.Client {
       options.invocationContext.clientId
     );
 
-    // Bind message handlers to this instance
-    super.onMessageArrived = this.handleMessage.bind(this);
-    super.onConnectionLost = this.handleConnectionLost.bind(this);
+    // Set up message handlers using the proper Paho Client methods
+    this.onMessageArrived = (message: Paho.Message) => this.handleMessage(message);
+    this.onConnectionLost = (responseObject: { errorCode: number; errorMessage?: string }) => 
+      this.handleConnectionLost(responseObject);
   }
 
   connectWithPromise(): Promise<void> {
