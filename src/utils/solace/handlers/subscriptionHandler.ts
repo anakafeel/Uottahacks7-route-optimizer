@@ -16,7 +16,7 @@ export class SubscriptionHandler {
         this.session.subscribe(
           topicDestination,
           requestConfirmation,
-          10000, // timeout in milliseconds
+          topic, // Using topic as correlation key
           (error) => {
             if (error) {
               console.error(`Error subscribing to ${topic}:`, error);
