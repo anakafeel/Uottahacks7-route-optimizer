@@ -1,17 +1,122 @@
-import React from 'react';
-import { useMapInstance } from '@/hooks/useMapInstance';
-import type { Route } from '@/types/route';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from "@/integrations/supabase/client";
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
 interface MapProps {
-  onRouteUpdate?: (route: Route | null) => void;
+  onRouteUpdate?: (route: any) => void;
 }
 
-const Map: React.FC<MapProps> = ({ onRouteUpdate }) => {
-  const mapInstance = useMapInstance('map-container');
+type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
+
+const Map = ({ onRouteUpdate }: MapProps) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<L.Map | null>(null);
+  const { toast } = useToast();
+  const markers = useRef<{ [key: string]: L.Marker }>({});
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const initialized = useRef(false);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainer.current || initialized.current) return;
+
+    initialized.current = true;
+    
+    map.current = L.map(mapContainer.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+    }).setView([45.4215, -75.6972], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map.current);
+
+    // Only trigger route update once on initial load
+    if (onRouteUpdate && map.current) {
+      const center = map.current.getCenter();
+      const bounds = map.current.getBounds();
+      
+      onRouteUpdate({
+        status: 'loaded',
+        centerLng: center.lng,
+        centerLat: center.lat,
+        zoom: map.current.getZoom(),
+        bounds: {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth()
+        }
+      });
+    }
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+        initialized.current = false;
+      }
+    };
+  }, [onRouteUpdate]);
+
+  // Subscribe to real-time driver updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('drivers-location')
+      .on<DriverUpdate>(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'drivers'
+        },
+        (payload) => {
+          if (!map.current) return;
+
+          const driver = payload.new as DriverUpdate;
+          
+          if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
+            console.warn('Invalid driver data received:', driver);
+            return;
+          }
+
+          if (markers.current[driver.id]) {
+            markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
+          } else {
+            const driverIcon = L.divIcon({
+              className: 'driver-marker',
+              html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
+              iconSize: [20, 20]
+            });
+
+            markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
+              icon: driverIcon
+            }).addTo(map.current);
+          }
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, []);
 
   return (
-    <div className="absolute inset-0">
-      <div id="map-container" className="h-full" />
+    <div className="relative w-full h-screen">
+      <div ref={mapContainer} className="absolute inset-0" style={{ zIndex: 0 }} />
+      <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
+        <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
+        <p className="text-sm text-muted-foreground">Ottawa Region</p>
+      </div>
     </div>
   );
 };

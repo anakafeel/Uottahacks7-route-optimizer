@@ -18,15 +18,6 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
   const [optimizationResults, setOptimizationResults] = useState<any>(null);
 
   const handleOptimizeRoute = async () => {
-    if (!currentRoute) {
-      toast({
-        title: "Error",
-        description: "No route selected for optimization",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsOptimizing(true);
       toast({
@@ -47,16 +38,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
       // Call the optimize-route Edge Function
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: {
-          route: {
-            id: currentRoute.id,
-            start_lat: currentRoute.start_lat,
-            start_lng: currentRoute.start_lng,
-            end_lat: currentRoute.end_lat,
-            end_lng: currentRoute.end_lng,
-            traffic_level: currentRoute.traffic_level,
-            estimated_duration: currentRoute.estimated_duration,
-            weather_conditions: currentRoute.weather_conditions
-          },
+          route: currentRoute,
           trafficData,
         },
       });
@@ -81,7 +63,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
           traffic_prediction: data.recommendations,
           status: 'optimized'
         })
-        .eq('id', currentRoute.id);
+        .eq('id', currentRoute?.id);
 
       if (updateError) throw updateError;
 
