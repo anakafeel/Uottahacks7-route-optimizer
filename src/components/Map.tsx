@@ -47,8 +47,32 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       weather_conditions: 'clear'
     };
 
+    // Draw the route on the map
+    if (map.current) {
+      const startMarker = L.marker([mockRoute.start_lat, mockRoute.start_lng])
+        .addTo(map.current)
+        .bindPopup('Start Point');
+
+      const endMarker = L.marker([mockRoute.end_lat, mockRoute.end_lng])
+        .addTo(map.current)
+        .bindPopup('End Point');
+
+      // Draw a simple line between start and end points
+      const routeLine = L.polyline(
+        [[mockRoute.start_lat, mockRoute.start_lng], [mockRoute.end_lat, mockRoute.end_lng]],
+        { color: 'blue', weight: 3 }
+      ).addTo(map.current);
+
+      // Fit the map to show the entire route
+      const bounds = L.latLngBounds([
+        [mockRoute.start_lat, mockRoute.start_lng],
+        [mockRoute.end_lat, mockRoute.end_lng]
+      ]);
+      map.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+
     // Only trigger route update once on initial load
-    if (onRouteUpdate && map.current) {
+    if (onRouteUpdate) {
       onRouteUpdate(mockRoute);
     }
 
