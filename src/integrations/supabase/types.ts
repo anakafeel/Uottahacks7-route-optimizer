@@ -9,7 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      drivers: {
+        Row: {
+          created_at: string
+          current_lat: number | null
+          current_lng: number | null
+          id: string
+          name: string
+          status: string | null
+          updated_at: string
+          user_id: string
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          current_lat?: number | null
+          current_lng?: number | null
+          id?: string
+          name: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          vehicle_type: string
+        }
+        Update: {
+          created_at?: string
+          current_lat?: number | null
+          current_lng?: number | null
+          id?: string
+          name?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
+      routes: {
+        Row: {
+          actual_duration: number | null
+          created_at: string
+          driver_id: string
+          end_lat: number
+          end_lng: number
+          estimated_duration: number | null
+          id: string
+          start_lat: number
+          start_lng: number
+          status: string | null
+          traffic_level: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_duration?: number | null
+          created_at?: string
+          driver_id: string
+          end_lat: number
+          end_lng: number
+          estimated_duration?: number | null
+          id?: string
+          start_lat: number
+          start_lng: number
+          status?: string | null
+          traffic_level?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_duration?: number | null
+          created_at?: string
+          driver_id?: string
+          end_lat?: number
+          end_lng?: number
+          estimated_duration?: number | null
+          id?: string
+          start_lat?: number
+          start_lng?: number
+          status?: string | null
+          traffic_level?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

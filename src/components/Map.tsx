@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from "@/integrations/supabase/client";
 
 interface MapProps {
   onRouteUpdate?: (route: any) => void;
@@ -12,6 +13,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
   const hasShownError = useRef(false);
+  const markers = useRef<{ [key: string]: mapboxgl.Marker }>({});
 
   const handleMapLoad = useCallback(() => {
     if (!map.current) return;
@@ -42,8 +44,49 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     }
   }, [onRouteUpdate, toast]);
 
+  // Subscribe to real-time driver updates
   useEffect(() => {
-    // Prevent multiple initializations
+    const channel = supabase
+      .channel('drivers-location')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'drivers'
+        },
+        (payload) => {
+          if (!map.current) return;
+
+          const { new: driver } = payload;
+          if (driver.current_lat && driver.current_lng) {
+            // Update or create marker for driver
+            if (markers.current[driver.id]) {
+              markers.current[driver.id].setLngLat([driver.current_lng, driver.current_lat]);
+            } else {
+              const el = document.createElement('div');
+              el.className = 'driver-marker';
+              el.style.width = '20px';
+              el.style.height = '20px';
+              el.style.borderRadius = '50%';
+              el.style.backgroundColor = '#4CAF50';
+              el.style.border = '2px solid white';
+
+              markers.current[driver.id] = new mapboxgl.Marker(el)
+                .setLngLat([driver.current_lng, driver.current_lat])
+                .addTo(map.current);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
     try {
@@ -58,13 +101,11 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
       map.current = mapInstance;
 
-      // Add navigation controls
       mapInstance.addControl(
         new mapboxgl.NavigationControl(),
         'top-right'
       );
       
-      // Add geolocation control
       mapInstance.addControl(
         new mapboxgl.GeolocateControl({
           positionOptions: {
@@ -76,10 +117,8 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         'top-right'
       );
 
-      // Add event listeners
       mapInstance.once('load', handleMapLoad);
 
-      // Only show error toast once
       mapInstance.on('error', (e: any) => {
         if (!hasShownError.current) {
           const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
@@ -92,13 +131,12 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         }
       });
 
-      // Cleanup function
       return () => {
-        if (mapInstance) {
-          mapInstance.remove();
-          map.current = null;
-          hasShownError.current = false;
-        }
+        Object.values(markers.current).forEach(marker => marker.remove());
+        markers.current = {};
+        mapInstance.remove();
+        map.current = null;
+        hasShownError.current = false;
       };
 
     } catch (error) {
@@ -119,7 +157,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       <div ref={mapContainer} className="absolute inset-0" />
       <div className="absolute top-4 left-4 bg-background/90 p-4 rounded-lg shadow-lg">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
-        <p className="text-sm text-muted-foreground">Real-time traffic updates coming soon</p>
+        <p className="text-sm text-muted-foreground">Real-time traffic updates active</p>
       </div>
     </div>
   );
