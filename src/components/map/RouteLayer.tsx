@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Route } from '@/types/route';
 
 interface RouteLayerProps {
@@ -8,36 +8,51 @@ interface RouteLayerProps {
 }
 
 const RouteLayer = ({ map, route }: RouteLayerProps) => {
+  const markersRef = useRef<{
+    start?: L.Marker;
+    end?: L.Marker;
+    line?: L.Polyline;
+  }>({});
+
   useEffect(() => {
-    if (!map) return;
+    // Wait for next tick to ensure map is ready
+    const timer = setTimeout(() => {
+      if (!map) return;
 
-    // Add markers
-    const startMarker = L.marker([route.start_lat, route.start_lng])
-      .addTo(map)
-      .bindPopup('Start Point');
+      // Clean up existing markers and line
+      if (markersRef.current.start) markersRef.current.start.remove();
+      if (markersRef.current.end) markersRef.current.end.remove();
+      if (markersRef.current.line) markersRef.current.line.remove();
 
-    const endMarker = L.marker([route.end_lat, route.end_lng])
-      .addTo(map)
-      .bindPopup('End Point');
+      // Add markers
+      markersRef.current.start = L.marker([route.start_lat, route.start_lng])
+        .addTo(map)
+        .bindPopup('Start Point');
 
-    // Draw route line
-    const routeLine = L.polyline(
-      [[route.start_lat, route.start_lng], [route.end_lat, route.end_lng]],
-      { color: 'blue', weight: 3 }
-    ).addTo(map);
+      markersRef.current.end = L.marker([route.end_lat, route.end_lng])
+        .addTo(map)
+        .bindPopup('End Point');
 
-    // Fit bounds to show the entire route
-    const bounds = L.latLngBounds([
-      [route.start_lat, route.start_lng],
-      [route.end_lat, route.end_lng]
-    ]);
-    map.fitBounds(bounds, { padding: [50, 50] });
+      // Draw route line
+      markersRef.current.line = L.polyline(
+        [[route.start_lat, route.start_lng], [route.end_lat, route.end_lng]],
+        { color: 'blue', weight: 3 }
+      ).addTo(map);
+
+      // Fit bounds to show the entire route
+      const bounds = L.latLngBounds([
+        [route.start_lat, route.start_lng],
+        [route.end_lat, route.end_lng]
+      ]);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }, 0);
 
     // Cleanup
     return () => {
-      startMarker.remove();
-      endMarker.remove();
-      routeLine.remove();
+      clearTimeout(timer);
+      if (markersRef.current.start) markersRef.current.start.remove();
+      if (markersRef.current.end) markersRef.current.end.remove();
+      if (markersRef.current.line) markersRef.current.line.remove();
     };
   }, [map, route]);
 

@@ -60,8 +60,8 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     <div className="relative w-full h-screen">
       <div 
         ref={mapContainer} 
-        className="absolute inset-0 z-0 bg-gray-100"
-        style={{ width: '100%', height: '100%' }} 
+        className="absolute inset-0 z-0"
+        style={{ width: '100%', height: '100%', background: '#f8f9fa' }} 
       />
       {map.current && (
         <>
