@@ -1,7 +1,7 @@
 import * as solaceModule from 'solclientjs';
 import { supabase } from "@/integrations/supabase/client";
 import { initializeSolaceFactory, createSessionProperties } from './config';
-import type { SolaceConfig, MessageCallback } from './types';
+import type { MessageCallback } from './types';
 
 class SolaceClient {
   private static instance: SolaceClient;
@@ -33,14 +33,17 @@ class SolaceClient {
     try {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
-      if (configError || !config?.SOLACE_HOST_URL || !config?.SOLACE_VPN_NAME || !config?.SOLACE_USERNAME) {
-        throw new Error('Invalid Solace configuration');
+      if (configError || !config) {
+        throw new Error('Failed to get Solace configuration');
       }
+
+      console.log('Retrieved Solace configuration successfully');
 
       const properties = createSessionProperties({
         url: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
-        userName: config.SOLACE_USERNAME
+        userName: config.SOLACE_USERNAME,
+        password: config.SOLACE_PASSWORD
       });
 
       this.session = solaceModule.SolclientFactory.createSession(properties);

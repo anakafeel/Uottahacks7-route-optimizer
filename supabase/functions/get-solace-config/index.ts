@@ -20,6 +20,8 @@ serve(async (req) => {
       throw new Error('Missing required Solace configuration')
     }
 
+    console.log('Returning Solace configuration (with redacted password)')
+
     return new Response(
       JSON.stringify({
         SOLACE_HOST_URL,
