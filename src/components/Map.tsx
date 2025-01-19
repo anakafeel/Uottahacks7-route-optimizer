@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,10 +12,39 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
 
+  const handleMapLoad = useCallback(() => {
+    if (!map.current) return;
+    
+    toast({
+      title: "Map loaded successfully",
+      description: "Ready to start route optimization",
+    });
+
+    if (onRouteUpdate) {
+      const center = map.current.getCenter();
+      const bounds = map.current.getBounds();
+      
+      // Ensure we only pass primitive values
+      const routeData = {
+        status: 'loaded',
+        centerLng: center.lng,
+        centerLat: center.lat,
+        zoom: map.current.getZoom(),
+        bounds: {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth()
+        }
+      };
+      
+      onRouteUpdate(routeData);
+    }
+  }, [onRouteUpdate, toast]);
+
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    // Using a public token for demo purposes - replace with your own token in production
     mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
     
     try {
@@ -29,61 +58,41 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       map.current = mapInstance;
 
       // Add navigation controls
-      const nav = new mapboxgl.NavigationControl();
-      mapInstance.addControl(nav, 'top-right');
+      mapInstance.addControl(
+        new mapboxgl.NavigationControl(),
+        'top-right'
+      );
       
       // Add geolocation control
-      const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true
-        },
-        trackUserLocation: true,
-        showUserHeading: true
-      });
-      mapInstance.addControl(geolocate, 'top-right');
+      mapInstance.addControl(
+        new mapboxgl.GeolocateControl({
+          positionOptions: {
+            enableHighAccuracy: true
+          },
+          trackUserLocation: true,
+          showUserHeading: true
+        }),
+        'top-right'
+      );
 
-      const handleMapLoad = () => {
-        toast({
-          title: "Map loaded successfully",
-          description: "Ready to start route optimization",
-        });
+      // Add event listeners
+      mapInstance.once('load', handleMapLoad);
 
-        if (onRouteUpdate) {
-          const center = mapInstance.getCenter();
-          const bounds = mapInstance.getBounds();
-          
-          // Only pass serializable data
-          onRouteUpdate({
-            status: 'loaded',
-            center: [center.lng, center.lat],
-            zoom: mapInstance.getZoom(),
-            bounds: [
-              [bounds.getWest(), bounds.getSouth()],
-              [bounds.getEast(), bounds.getNorth()]
-            ]
-          });
-        }
-      };
-
-      const handleMapError = (e: any) => {
+      mapInstance.on('error', (e: any) => {
         const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
         toast({
           title: "Map Error",
           description: errorMessage,
           variant: "destructive",
         });
-      };
-
-      // Add event listeners
-      mapInstance.on('load', handleMapLoad);
-      mapInstance.on('error', handleMapError);
+      });
 
       // Cleanup function
       return () => {
-        mapInstance.off('load', handleMapLoad);
-        mapInstance.off('error', handleMapError);
-        mapInstance.remove();
-        map.current = null;
+        if (mapInstance) {
+          mapInstance.remove();
+          map.current = null;
+        }
       };
 
     } catch (error) {
@@ -94,7 +103,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         variant: "destructive",
       });
     }
-  }, [onRouteUpdate, toast]); // Include dependencies that are used in the effect
+  }, [handleMapLoad, toast]);
 
   return (
     <div className="relative w-full h-screen">
