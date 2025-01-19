@@ -11,7 +11,7 @@ interface SolaceHandlerProps {
 const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteUpdate }) => {
   const { toast } = useToast();
   const connectionAttempted = useRef(false);
-  const maxRetries = useRef(5); // Increased retries
+  const maxRetries = useRef(5);
   const retryCount = useRef(0);
   const retryTimeout = useRef<NodeJS.Timeout>();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -68,7 +68,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         if (retryCount.current < maxRetries.current) {
           retryCount.current++;
           connectionAttempted.current = false;
-          const retryDelay = Math.min(2000 * Math.pow(2, retryCount.current), 30000); // Exponential backoff
+          const retryDelay = Math.min(2000 * Math.pow(2, retryCount.current), 30000);
           console.log(`Retrying connection in ${retryDelay}ms (${retryCount.current}/${maxRetries.current})...`);
           
           retryTimeout.current = setTimeout(initSolace, retryDelay);
