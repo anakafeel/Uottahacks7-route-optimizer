@@ -14,18 +14,25 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
   const { toast } = useToast();
 
   const createMarker = (location: MapLocation) => {
-    const markerColor = location.type === 'start' ? 'primary' : 'secondary';
+    const markerColor = location.type === 'start' ? 'green' : 'red';
     const markerLabel = location.type === 'start' ? 'S' : 'E';
     
     const icon = L.divIcon({
-      className: `location-marker`,
-      html: `<div class="w-6 h-6 rounded-full bg-${markerColor} border-2 border-white flex items-center justify-center">
-        <span class="text-xs text-white">${markerLabel}</span>
-      </div>`,
-      iconSize: [24, 24]
+      className: 'bg-white rounded-full border-2 flex items-center justify-center',
+      html: `
+        <div class="w-6 h-6 rounded-full bg-${markerColor}-500 text-white flex items-center justify-center text-xs font-bold">
+          ${markerLabel}
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
 
-    return L.marker([location.lat, location.lng], { icon, draggable: true });
+    return L.marker([location.lat, location.lng], { 
+      icon, 
+      draggable: true,
+      autoPan: true
+    });
   };
 
   useEffect(() => {
@@ -37,10 +44,6 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
       };
 
       if (!startMarker.current) {
-        if (endMarker.current) {
-          endMarker.current.remove();
-          endMarker.current = null;
-        }
         startMarker.current = createMarker(location)
           .addTo(map)
           .on('dragend', handleMarkerDrag);
@@ -48,6 +51,7 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
         toast({
           title: "Start Location Set",
           description: "Click anywhere to set destination",
+          duration: 3000,
         });
       } else if (!endMarker.current) {
         endMarker.current = createMarker(location)
@@ -65,19 +69,22 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
         toast({
           title: "Route Set",
           description: "Calculating optimal route...",
+          duration: 3000,
         });
       } else {
         // Reset markers if both exist
-        startMarker.current.remove();
-        endMarker.current.remove();
+        if (startMarker.current) startMarker.current.remove();
+        if (endMarker.current) endMarker.current.remove();
+        
         startMarker.current = createMarker(location)
           .addTo(map)
           .on('dragend', handleMarkerDrag);
         endMarker.current = null;
         
         toast({
-          title: "Start Location Reset",
+          title: "Route Reset",
           description: "Click anywhere to set new destination",
+          duration: 3000,
         });
       }
     };
@@ -91,6 +98,12 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
           { lat: start.lat, lng: start.lng, type: 'start' },
           { lat: end.lat, lng: end.lng, type: 'end' }
         );
+
+        toast({
+          title: "Route Updated",
+          description: "Recalculating optimal route...",
+          duration: 3000,
+        });
       }
     };
 

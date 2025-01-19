@@ -15,9 +15,11 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
     const initSolace = async () => {
       try {
         await solaceClient.connect();
+        console.log('Connected to Solace PubSub+');
         
         // Subscribe to traffic updates
         solaceClient.subscribe('traffic/updates', (message) => {
+          console.log('Received traffic update:', message);
           const binaryAttachment = message.getBinaryAttachment();
           const messageStr = typeof binaryAttachment === 'string' 
             ? binaryAttachment 
@@ -28,6 +30,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
 
         // Subscribe to route updates
         solaceClient.subscribe('routes/updates', (message) => {
+          console.log('Received route update:', message);
           const binaryAttachment = message.getBinaryAttachment();
           const messageStr = typeof binaryAttachment === 'string' 
             ? binaryAttachment 
@@ -39,6 +42,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         toast({
           title: "Connected to Solace",
           description: "Real-time updates enabled",
+          duration: 3000,
         });
       } catch (error) {
         console.error('Failed to connect to Solace:', error);
@@ -46,6 +50,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
           title: "Connection Error",
           description: "Failed to initialize real-time updates",
           variant: "destructive",
+          duration: 5000,
         });
       }
     };
@@ -53,6 +58,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
     initSolace();
 
     return () => {
+      console.log('Disconnecting from Solace PubSub+');
       solaceClient.disconnect();
     };
   }, [onTrafficUpdate, onRouteUpdate, toast]);
