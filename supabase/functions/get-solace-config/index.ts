@@ -11,55 +11,29 @@ serve(async (req) => {
   }
 
   try {
-    const SOLACE_HOST_URL = Deno.env.get('SOLACE_HOST_URL')
-    const SOLACE_VPN_NAME = Deno.env.get('SOLACE_VPN_NAME')
-    const SOLACE_USERNAME = Deno.env.get('SOLACE_USERNAME')
-    const SOLACE_PASSWORD = Deno.env.get('SOLACE_PASSWORD')
-
-    // Log the actual configuration values (without sensitive data)
-    console.log('Current Solace configuration:', {
-      hostUrl: SOLACE_HOST_URL,
-      vpnName: SOLACE_VPN_NAME,
-      hasUsername: !!SOLACE_USERNAME,
-      hasPassword: !!SOLACE_PASSWORD
-    })
+    // These values are taken directly from the Solace console image
+    const config = {
+      SOLACE_HOST_URL: 'mr-connection-tpv92rfqh.messaging.solace.cloud',
+      SOLACE_VPN_NAME: 'shiphappens',
+      SOLACE_USERNAME: Deno.env.get('SOLACE_USERNAME'),
+      SOLACE_PASSWORD: Deno.env.get('SOLACE_PASSWORD')
+    }
 
     // Validate required environment variables
-    if (!SOLACE_HOST_URL || !SOLACE_VPN_NAME || !SOLACE_USERNAME || !SOLACE_PASSWORD) {
-      const missingVars = {
-        SOLACE_HOST_URL: !SOLACE_HOST_URL,
-        SOLACE_VPN_NAME: !SOLACE_VPN_NAME,
-        SOLACE_USERNAME: !SOLACE_USERNAME,
-        SOLACE_PASSWORD: !SOLACE_PASSWORD
-      }
-      console.error('Missing required Solace configuration:', missingVars)
-      throw new Error(`Missing required Solace configuration: ${Object.keys(missingVars).filter(key => missingVars[key]).join(', ')}`)
+    if (!config.SOLACE_USERNAME || !config.SOLACE_PASSWORD) {
+      console.error('Missing required Solace credentials');
+      throw new Error('Missing required Solace credentials');
     }
 
-    // Validate host URL matches expected value
-    const expectedHost = 'mr-connection-tpv92rfqh.messaging.solace.cloud'
-    if (SOLACE_HOST_URL !== expectedHost) {
-      console.warn('Host URL mismatch:', {
-        current: SOLACE_HOST_URL,
-        expected: expectedHost
-      })
-    }
-
-    // Validate VPN name
-    if (SOLACE_VPN_NAME !== 'shiphappens') {
-      console.warn('VPN name mismatch:', {
-        current: SOLACE_VPN_NAME,
-        expected: 'shiphappens'
-      })
-    }
+    console.log('Returning Solace configuration:', {
+      hostUrl: config.SOLACE_HOST_URL,
+      vpnName: config.SOLACE_VPN_NAME,
+      hasUsername: !!config.SOLACE_USERNAME,
+      hasPassword: !!config.SOLACE_PASSWORD
+    });
 
     return new Response(
-      JSON.stringify({
-        SOLACE_HOST_URL,
-        SOLACE_VPN_NAME,
-        SOLACE_USERNAME,
-        SOLACE_PASSWORD,
-      }),
+      JSON.stringify(config),
       {
         headers: {
           ...corsHeaders,
@@ -69,7 +43,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('Error in get-solace-config function:', error)
+    console.error('Error in get-solace-config function:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,

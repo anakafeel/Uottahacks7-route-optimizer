@@ -60,6 +60,7 @@ class SolaceClient {
         keepAliveIntervalsLimit: 10,
       });
 
+      console.log('Creating Solace session with URL:', properties.url);
       this.session = solaceModule.SolclientFactory.createSession(properties);
 
       await new Promise<void>((resolve, reject) => {
