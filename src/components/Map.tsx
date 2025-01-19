@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
 interface MapProps {
@@ -53,14 +53,14 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   useEffect(() => {
     const channel = supabase
       .channel('drivers-location')
-      .on(
+      .on<DriverUpdate>(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'drivers'
         },
-        (payload: { new: DriverUpdate }) => {
+        (payload: RealtimePostgresChangesPayload<DriverUpdate>) => {
           if (!map.current) return;
 
           const driver = payload.new;
