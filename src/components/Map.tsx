@@ -21,56 +21,66 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
   // Initialize map
   useEffect(() => {
+    // Ensure the container is mounted and map hasn't been initialized
     if (!mapContainer.current || map.current) return;
 
-    try {
-      // Center on Ottawa
-      map.current = L.map(mapContainer.current).setView([45.4215, -75.6972], 13);
+    // Add a small delay to ensure the container is fully rendered
+    const timer = setTimeout(() => {
+      try {
+        if (!mapContainer.current) return;
 
-      // Add OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map.current);
+        // Center on Ottawa
+        map.current = L.map(mapContainer.current, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+        }).setView([45.4215, -75.6972], 13);
 
-      toast({
-        title: "Map loaded successfully",
-        description: "Ready to start route optimization",
-      });
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map.current);
 
-      if (onRouteUpdate) {
-        const center = map.current.getCenter();
-        const bounds = map.current.getBounds();
-        
-        const routeData = {
-          status: 'loaded',
-          centerLng: center.lng,
-          centerLat: center.lat,
-          zoom: map.current.getZoom(),
-          bounds: {
-            west: bounds.getWest(),
-            south: bounds.getSouth(),
-            east: bounds.getEast(),
-            north: bounds.getNorth()
-          }
-        };
-        
-        onRouteUpdate(routeData);
-      }
+        toast({
+          title: "Map loaded successfully",
+          description: "Ready to start route optimization",
+        });
 
-      return () => {
-        if (map.current) {
-          map.current.remove();
-          map.current = null;
+        if (onRouteUpdate && map.current) {
+          const center = map.current.getCenter();
+          const bounds = map.current.getBounds();
+          
+          const routeData = {
+            status: 'loaded',
+            centerLng: center.lng,
+            centerLat: center.lat,
+            zoom: map.current.getZoom(),
+            bounds: {
+              west: bounds.getWest(),
+              south: bounds.getSouth(),
+              east: bounds.getEast(),
+              north: bounds.getNorth()
+            }
+          };
+          
+          onRouteUpdate(routeData);
         }
-      };
-    } catch (error) {
-      console.error('Error initializing map:', error);
-      toast({
-        title: "Map Initialization Error",
-        description: error instanceof Error ? error.message : "Failed to initialize map",
-        variant: "destructive",
-      });
-    }
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        toast({
+          title: "Map Initialization Error",
+          description: error instanceof Error ? error.message : "Failed to initialize map",
+          variant: "destructive",
+        });
+      }
+    }, 100); // Small delay to ensure container is ready
+
+    return () => {
+      clearTimeout(timer);
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
   }, [onRouteUpdate, toast]);
 
   // Subscribe to real-time driver updates
@@ -89,17 +99,14 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
           const driver = payload.new as DriverUpdate;
           
-          // Type guard to ensure required properties exist
           if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
             console.warn('Invalid driver data received:', driver);
             return;
           }
 
-          // Update or create marker for driver
           if (markers.current[driver.id]) {
             markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
           } else {
-            // Create custom icon for driver marker
             const driverIcon = L.divIcon({
               className: 'driver-marker',
               html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
@@ -124,8 +131,8 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   }, []);
 
   return (
-    <div className="relative w-full h-screen">
-      <div ref={mapContainer} className="absolute inset-0" />
+    <div className="relative w-full h-full min-h-[500px]">
+      <div ref={mapContainer} className="absolute inset-0 z-0" />
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
         <p className="text-sm text-muted-foreground">Ottawa Region</p>
