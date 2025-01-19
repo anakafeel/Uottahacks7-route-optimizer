@@ -20,69 +20,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const [trafficUpdates, setTrafficUpdates] = useState<TrafficUpdate[]>([]);
   const { toast } = useToast();
 
-  const handleRouteSelection = async (start: MapLocation, end: MapLocation) => {
-    try {
-      console.log('Route selection:', { start, end });
-      
-      // Calculate distance and estimated duration based on coordinates
-      const distance = map.current?.distance([start.lat, start.lng], [end.lat, end.lng]) || 0;
-      const estimatedDuration = Math.round((distance / 1000) * 3); // Rough estimate: 3 minutes per km
-
-      // Call the optimize-route Edge Function with actual route data
-      const { data, error } = await supabase.functions.invoke('optimize-route', {
-        body: {
-          route: {
-            start_lat: start.lat,
-            start_lng: start.lng,
-            end_lat: end.lat,
-            end_lng: end.lng,
-            estimated_duration: estimatedDuration,
-            distance: (distance / 1000).toFixed(2), // Convert to km
-            traffic_level: 'Medium' // Default traffic level
-          }
-        },
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw error;
-      }
-
-      // Try to publish to Solace if available
-      try {
-        await solaceClient.publish('route/request', JSON.stringify({
-          start,
-          end,
-          timestamp: new Date().toISOString()
-        }));
-      } catch (solaceError) {
-        console.warn('Solace publish failed (non-critical):', solaceError);
-      }
-
-      if (onRouteUpdate) {
-        onRouteUpdate({
-          status: 'updated',
-          start,
-          end,
-          optimization: data
-        });
-      }
-
-      toast({
-        title: "Route Calculated",
-        description: "Optimization recommendations ready",
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error('Error requesting route:', error);
-      toast({
-        title: "Route Error",
-        description: "Failed to calculate route. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || initialized.current) return;
@@ -118,7 +55,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         <>
           <RouteMarkers 
             map={map.current} 
-            onRouteUpdate={handleRouteSelection} 
+            onRouteUpdate={onRouteUpdate} 
           />
           <SolaceHandler
             onTrafficUpdate={handleTrafficUpdate}

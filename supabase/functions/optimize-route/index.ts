@@ -10,9 +10,9 @@ interface RouteData {
   start_lng: number;
   end_lat: number;
   end_lng: number;
-  estimated_duration?: number;
-  distance?: string;
-  traffic_level?: string;
+  estimated_duration: number;
+  distance: string;
+  traffic_level: string;
 }
 
 interface TrafficUpdate {
@@ -25,7 +25,7 @@ interface TrafficUpdate {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -36,9 +36,9 @@ serve(async (req) => {
     // Prepare the prompt with route and traffic information
     const prompt = `Analyze this route and traffic data and provide optimization recommendations:
       Route: From ${route.start_lat},${route.start_lng} to ${route.end_lat},${route.end_lng}
-      Current traffic level: ${route.traffic_level || 'Medium'}
-      Estimated duration: ${route.estimated_duration || 25} minutes
-      Distance: ${route.distance || '12.5'} km
+      Current traffic level: ${route.traffic_level}
+      Estimated duration: ${route.estimated_duration} minutes
+      Distance: ${route.distance} km
       Traffic conditions: ${JSON.stringify(trafficData)}
       
       Provide recommendations in this format:
@@ -88,54 +88,31 @@ serve(async (req) => {
       if (!groqResponse.ok) {
         const errorText = await groqResponse.text()
         console.error('Groq API error response:', errorText)
-        
-        // Provide fallback recommendations if Groq API fails
-        return new Response(
-          JSON.stringify({
-            recommendations: {
-              alternatives: [
-                {
-                  description: "Consider taking main roads to avoid potential delays",
-                  estimated_time: route.estimated_duration || 25
-                }
-              ],
-              delays: {
-                minutes: 5,
-                severity: "low"
-              },
-              weather_impact: "No significant weather impact reported",
-            }
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        )
+        throw new Error('Failed to get response from Groq API')
       }
 
       const groqData = await groqResponse.json()
       console.log('Groq API response:', groqData)
 
-      // Parse AI response and structure recommendations
       const aiResponse = groqData.choices[0]?.message?.content || ''
       
       // Structure the recommendations based on AI response
       const recommendations = {
         alternatives: [
           {
-            description: "Based on current traffic conditions, consider taking an alternative route via side streets.",
-            estimated_time: 20
-          },
-          {
-            description: "A longer but potentially faster route is available through the highway.",
-            estimated_time: 25
+            description: aiResponse.includes('Alternative') ? 
+              aiResponse.split('Alternative')[1]?.split('\n')[0] : 
+              "Consider taking an alternative route based on current conditions.",
+            estimated_time: route.estimated_duration
           }
         ],
         delays: {
-          minutes: 15,
-          severity: "moderate"
+          minutes: Math.round(route.estimated_duration * 0.2), // 20% buffer
+          severity: trafficData?.some((t: TrafficUpdate) => t.severity === 'high') ? 'high' : 'moderate'
         },
-        weather_impact: "Clear conditions, no significant impact on route",
+        weather_impact: aiResponse.includes('Weather') ? 
+          aiResponse.split('Weather')[1]?.split('\n')[0] : 
+          "No significant weather impact reported",
       }
 
       return new Response(
@@ -175,7 +152,7 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 with fallback data instead of 500
+        status: 200,
       },
     )
   }
