@@ -13,22 +13,24 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!mapContainer.current || map.current) return; // Prevent re-initialization if map exists
+    if (!mapContainer.current || map.current) return;
 
     // Using a public token for demo purposes - replace with your own token in production
     mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
     
     try {
-      map.current = new mapboxgl.Map({
+      const mapInstance = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/dark-v11',
         center: [-74.5, 40],
         zoom: 9
       });
 
+      map.current = mapInstance;
+
       // Add navigation controls
       const nav = new mapboxgl.NavigationControl();
-      map.current.addControl(nav, 'top-right');
+      mapInstance.addControl(nav, 'top-right');
       
       // Add geolocation control
       const geolocate = new mapboxgl.GeolocateControl({
@@ -38,40 +40,51 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         trackUserLocation: true,
         showUserHeading: true
       });
-      map.current.addControl(geolocate, 'top-right');
+      mapInstance.addControl(geolocate, 'top-right');
 
-      const currentMap = map.current;
-      currentMap.on('load', () => {
+      const handleMapLoad = () => {
         toast({
           title: "Map loaded successfully",
           description: "Ready to start route optimization",
         });
 
         if (onRouteUpdate) {
-          const center = currentMap.getCenter();
-          const bounds = currentMap.getBounds();
+          const center = mapInstance.getCenter();
+          const bounds = mapInstance.getBounds();
           
-          const serializedData = {
+          // Only pass serializable data
+          onRouteUpdate({
             status: 'loaded',
             center: [center.lng, center.lat],
-            zoom: currentMap.getZoom(),
+            zoom: mapInstance.getZoom(),
             bounds: [
               [bounds.getWest(), bounds.getSouth()],
               [bounds.getEast(), bounds.getNorth()]
             ]
-          };
-          onRouteUpdate(serializedData);
+          });
         }
-      });
+      };
 
-      currentMap.on('error', (e) => {
+      const handleMapError = (e: any) => {
         const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
         toast({
           title: "Map Error",
           description: errorMessage,
           variant: "destructive",
         });
-      });
+      };
+
+      // Add event listeners
+      mapInstance.on('load', handleMapLoad);
+      mapInstance.on('error', handleMapError);
+
+      // Cleanup function
+      return () => {
+        mapInstance.off('load', handleMapLoad);
+        mapInstance.off('error', handleMapError);
+        mapInstance.remove();
+        map.current = null;
+      };
 
     } catch (error) {
       console.error('Error initializing map:', error);
@@ -81,14 +94,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         variant: "destructive",
       });
     }
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
-  }, []); // Empty dependency array since we only want to initialize once
+  }, [onRouteUpdate, toast]); // Include dependencies that are used in the effect
 
   return (
     <div className="relative w-full h-screen">
