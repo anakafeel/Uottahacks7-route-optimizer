@@ -11,6 +11,8 @@ interface SolaceHandlerProps {
 const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteUpdate }) => {
   const { toast } = useToast();
   const connectionAttempted = useRef(false);
+  const maxRetries = useRef(3);
+  const retryCount = useRef(0);
 
   useEffect(() => {
     const initSolace = async () => {
@@ -20,27 +22,36 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
       try {
         await solaceClient.connect();
         console.log('Connected to Solace PubSub+');
+        retryCount.current = 0; // Reset retry count on successful connection
         
         // Subscribe to traffic updates
         solaceClient.subscribe('traffic/updates', (message) => {
-          console.log('Received traffic update:', message);
-          const binaryAttachment = message.getBinaryAttachment();
-          const messageStr = typeof binaryAttachment === 'string' 
-            ? binaryAttachment 
-            : new TextDecoder().decode(binaryAttachment);
-          const trafficData = JSON.parse(messageStr) as TrafficUpdate;
-          onTrafficUpdate(trafficData);
+          try {
+            console.log('Received traffic update:', message);
+            const binaryAttachment = message.getBinaryAttachment();
+            const messageStr = typeof binaryAttachment === 'string' 
+              ? binaryAttachment 
+              : new TextDecoder().decode(binaryAttachment);
+            const trafficData = JSON.parse(messageStr) as TrafficUpdate;
+            onTrafficUpdate(trafficData);
+          } catch (error) {
+            console.error('Error processing traffic update:', error);
+          }
         });
 
         // Subscribe to route updates
         solaceClient.subscribe('routes/updates', (message) => {
-          console.log('Received route update:', message);
-          const binaryAttachment = message.getBinaryAttachment();
-          const messageStr = typeof binaryAttachment === 'string' 
-            ? binaryAttachment 
-            : new TextDecoder().decode(binaryAttachment);
-          const routeData = JSON.parse(messageStr);
-          onRouteUpdate(routeData);
+          try {
+            console.log('Received route update:', message);
+            const binaryAttachment = message.getBinaryAttachment();
+            const messageStr = typeof binaryAttachment === 'string' 
+              ? binaryAttachment 
+              : new TextDecoder().decode(binaryAttachment);
+            const routeData = JSON.parse(messageStr);
+            onRouteUpdate(routeData);
+          } catch (error) {
+            console.error('Error processing route update:', error);
+          }
         });
 
         toast({
@@ -50,12 +61,20 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         });
       } catch (error) {
         console.error('Failed to connect to Solace:', error);
-        toast({
-          title: "Connection Error",
-          description: "Failed to initialize real-time updates",
-          variant: "destructive",
-          duration: 5000,
-        });
+        
+        if (retryCount.current < maxRetries.current) {
+          retryCount.current++;
+          connectionAttempted.current = false; // Allow retry
+          console.log(`Retrying connection (${retryCount.current}/${maxRetries.current})...`);
+          setTimeout(initSolace, 2000); // Retry after 2 seconds
+        } else {
+          toast({
+            title: "Connection Error",
+            description: "Unable to establish real-time connection. Some features may be limited.",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
       }
     };
 
