@@ -16,7 +16,7 @@ export class SubscriptionHandler {
         this.session.subscribe(
           topicDestination,
           requestConfirmation,
-          topic, // Using topic as correlation key
+          { correlationKey: topic }, // Using an object with correlationKey as required by Solace API
           (error) => {
             if (error) {
               console.error(`Error subscribing to ${topic}:`, error);
