@@ -40,13 +40,21 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         
         // Subscribe to traffic updates
         solaceClient.subscribe('traffic/updates', (message) => {
-          const trafficData = JSON.parse(message.getBinaryAttachment()) as TrafficUpdate;
+          const binaryAttachment = message.getBinaryAttachment();
+          const messageStr = typeof binaryAttachment === 'string' 
+            ? binaryAttachment 
+            : new TextDecoder().decode(binaryAttachment);
+          const trafficData = JSON.parse(messageStr) as TrafficUpdate;
           handleTrafficUpdate(trafficData);
         });
 
         // Subscribe to route updates
         solaceClient.subscribe('routes/updates', (message) => {
-          const routeData = JSON.parse(message.getBinaryAttachment());
+          const binaryAttachment = message.getBinaryAttachment();
+          const messageStr = typeof binaryAttachment === 'string' 
+            ? binaryAttachment 
+            : new TextDecoder().decode(binaryAttachment);
+          const routeData = JSON.parse(messageStr);
           console.log('Received route update:', routeData);
           // Handle route updates (e.g., display new routes, update existing ones)
         });
