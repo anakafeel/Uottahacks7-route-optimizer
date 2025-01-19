@@ -4,8 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
 import { solaceClient } from '@/utils/solaceClient';
+import RouteMarkers from './RouteMarkers';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
+import type { MapLocation } from '@/utils/mapInteractions';
 
 interface MapProps {
   onRouteUpdate?: (route: any) => void;
@@ -32,6 +34,48 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const initialized = useRef(false);
 
+  const handleRouteSelection = async (start: MapLocation, end: MapLocation) => {
+    try {
+      await solaceClient.publish('route/request', JSON.stringify({
+        start,
+        end,
+        timestamp: new Date().toISOString()
+      }));
+
+      // Call the optimize-route Edge Function
+      const { data, error } = await supabase.functions.invoke('optimize-route', {
+        body: {
+          route: {
+            start_lat: start.lat,
+            start_lng: start.lng,
+            end_lat: end.lat,
+            end_lng: end.lng
+          }
+        },
+      });
+
+      if (error) throw error;
+
+      console.log('Route optimization response:', data);
+      
+      if (onRouteUpdate) {
+        onRouteUpdate({
+          status: 'updated',
+          start,
+          end,
+          optimization: data
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting route:', error);
+      toast({
+        title: "Route Error",
+        description: "Failed to calculate route. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Initialize Solace connection
   useEffect(() => {
     const initSolace = async () => {
@@ -56,23 +100,11 @@ const Map = ({ onRouteUpdate }: MapProps) => {
             : new TextDecoder().decode(binaryAttachment);
           const routeData = JSON.parse(messageStr);
           console.log('Received route update:', routeData);
-          // Handle route updates (e.g., display new routes, update existing ones)
         });
-
-        // Publish current map bounds to help other components
-        if (map.current) {
-          const bounds = map.current.getBounds();
-          solaceClient.publish('map/bounds', JSON.stringify({
-            north: bounds.getNorth(),
-            south: bounds.getSouth(),
-            east: bounds.getEast(),
-            west: bounds.getWest()
-          }));
-        }
 
         toast({
           title: "Connected to Solace",
-          description: "Real-time traffic updates enabled",
+          description: "Real-time updates enabled",
         });
       } catch (error) {
         console.error('Failed to connect to Solace:', error);
@@ -95,7 +127,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const handleTrafficUpdate = (update: TrafficUpdate) => {
     if (!map.current) return;
 
-    // Create a traffic incident icon
     const trafficIcon = L.divIcon({
       className: 'traffic-marker',
       html: `<div class="w-6 h-6 rounded-full bg-destructive/80 border-2 border-white flex items-center justify-center">
@@ -104,7 +135,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       iconSize: [24, 24]
     });
 
-    // Add new traffic marker
     const marker = L.marker([update.location.lat, update.location.lng], {
       icon: trafficIcon
     })
@@ -119,7 +149,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
     trafficMarkers.current.push(marker);
 
-    // Remove old markers after 5 minutes
     setTimeout(() => {
       if (map.current && marker) {
         marker.remove();
@@ -143,25 +172,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map.current);
 
-    // Only trigger route update once on initial load
-    if (onRouteUpdate && map.current) {
-      const center = map.current.getCenter();
-      const bounds = map.current.getBounds();
-      
-      onRouteUpdate({
-        status: 'loaded',
-        centerLng: center.lng,
-        centerLat: center.lat,
-        zoom: map.current.getZoom(),
-        bounds: {
-          west: bounds.getWest(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          north: bounds.getNorth()
-        }
-      });
-    }
-
     return () => {
       if (map.current) {
         map.current.remove();
@@ -169,63 +179,20 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         initialized.current = false;
       }
     };
-  }, [onRouteUpdate]);
-
-  // Subscribe to real-time driver updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('drivers-location')
-      .on<DriverUpdate>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        (payload) => {
-          if (!map.current) return;
-
-          const driver = payload.new as DriverUpdate;
-          
-          if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
-            console.warn('Invalid driver data received:', driver);
-            return;
-          }
-
-          if (markers.current[driver.id]) {
-            markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
-          } else {
-            const driverIcon = L.divIcon({
-              className: 'driver-marker',
-              html: `<div class="w-5 h-5 rounded-full bg-secondary border-2 border-white flex items-center justify-center">
-                <span class="text-xs text-white">D</span>
-              </div>`,
-              iconSize: [20, 20]
-            });
-
-            markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
-              icon: driverIcon
-            }).addTo(map.current);
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
   }, []);
 
   return (
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" style={{ zIndex: 0 }} />
+      {map.current && (
+        <RouteMarkers 
+          map={map.current} 
+          onRouteUpdate={handleRouteSelection} 
+        />
+      )}
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
-        <p className="text-sm text-muted-foreground">Ottawa Region</p>
+        <p className="text-sm text-muted-foreground">Click anywhere to set route points</p>
       </div>
     </div>
   );
