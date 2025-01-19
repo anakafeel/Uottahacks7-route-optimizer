@@ -64,7 +64,11 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           if (!map.current) return;
 
           const driver = payload.new;
-          if (driver.current_lat && driver.current_lng) {
+          // Ensure driver and required properties exist before proceeding
+          if (driver && typeof driver.id === 'string' && 
+              typeof driver.current_lat === 'number' && 
+              typeof driver.current_lng === 'number') {
+            
             // Update or create marker for driver
             if (markers.current[driver.id]) {
               markers.current[driver.id].setLngLat([driver.current_lng, driver.current_lat]);
