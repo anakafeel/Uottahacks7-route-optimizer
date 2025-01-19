@@ -11,8 +11,9 @@ interface SolaceHandlerProps {
 const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteUpdate }) => {
   const { toast } = useToast();
   const connectionAttempted = useRef(false);
-  const maxRetries = useRef(3);
+  const maxRetries = useRef(5); // Increased retries
   const retryCount = useRef(0);
+  const retryTimeout = useRef<NodeJS.Timeout>();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   useEffect(() => {
@@ -22,51 +23,36 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
       setConnectionStatus('connecting');
 
       try {
-        console.log('Attempting to connect to Solace PubSub+...');
         await solaceClient.connect();
         console.log('Successfully connected to Solace PubSub+');
         setConnectionStatus('connected');
         retryCount.current = 0;
         
-        // Subscribe to traffic updates with detailed logging
+        // Subscribe to traffic updates
         solaceClient.subscribe('traffic/updates', (message) => {
           try {
-            console.log('Received traffic update message:', message);
             const binaryAttachment = message.getBinaryAttachment();
             const messageStr = typeof binaryAttachment === 'string' 
               ? binaryAttachment 
               : new TextDecoder().decode(binaryAttachment);
-            console.log('Decoded traffic update:', messageStr);
             const trafficData = JSON.parse(messageStr) as TrafficUpdate;
             onTrafficUpdate(trafficData);
           } catch (error) {
             console.error('Error processing traffic update:', error);
-            toast({
-              title: "Message Processing Error",
-              description: "Failed to process traffic update message",
-              variant: "destructive",
-            });
           }
         });
 
-        // Subscribe to route updates with detailed logging
+        // Subscribe to route updates
         solaceClient.subscribe('routes/updates', (message) => {
           try {
-            console.log('Received route update message:', message);
             const binaryAttachment = message.getBinaryAttachment();
             const messageStr = typeof binaryAttachment === 'string' 
               ? binaryAttachment 
               : new TextDecoder().decode(binaryAttachment);
-            console.log('Decoded route update:', messageStr);
             const routeData = JSON.parse(messageStr);
             onRouteUpdate(routeData);
           } catch (error) {
             console.error('Error processing route update:', error);
-            toast({
-              title: "Message Processing Error",
-              description: "Failed to process route update message",
-              variant: "destructive",
-            });
           }
         });
 
@@ -82,12 +68,14 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         if (retryCount.current < maxRetries.current) {
           retryCount.current++;
           connectionAttempted.current = false;
-          console.log(`Retrying connection (${retryCount.current}/${maxRetries.current})...`);
-          setTimeout(initSolace, 2000);
+          const retryDelay = Math.min(2000 * Math.pow(2, retryCount.current), 30000); // Exponential backoff
+          console.log(`Retrying connection in ${retryDelay}ms (${retryCount.current}/${maxRetries.current})...`);
+          
+          retryTimeout.current = setTimeout(initSolace, retryDelay);
         } else {
           toast({
             title: "Connection Error",
-            description: "Unable to establish real-time connection. Please check your connection settings.",
+            description: "Unable to establish real-time connection. Please refresh the page.",
             variant: "destructive",
             duration: 5000,
           });
@@ -98,8 +86,10 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
     initSolace();
 
     return () => {
+      if (retryTimeout.current) {
+        clearTimeout(retryTimeout.current);
+      }
       if (solaceClient.isConnected()) {
-        console.log('Disconnecting from Solace PubSub+');
         solaceClient.disconnect();
         setConnectionStatus('disconnected');
       }
@@ -107,7 +97,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
   }, [onTrafficUpdate, onRouteUpdate, toast]);
 
   return (
-    <div className="absolute bottom-4 right-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
+    <div className="fixed bottom-4 right-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
       <div className="flex items-center gap-2">
         <div 
           className={`w-3 h-3 rounded-full ${

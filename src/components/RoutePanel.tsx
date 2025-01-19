@@ -44,14 +44,24 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
         traffic_level: 'Medium'
       };
 
-      console.log('Sending optimization request with:', { routeData, trafficData });
+      // Calculate actual distance if not provided
+      const distance = routeData.distance || '12.5';
+      const estimatedDuration = Math.round(parseFloat(distance) * 3); // 3 minutes per km
+
+      const optimizationRequest = {
+        route: {
+          ...routeData,
+          estimated_duration: estimatedDuration,
+          distance: distance
+        },
+        trafficData: trafficData || []
+      };
+
+      console.log('Sending optimization request with:', optimizationRequest);
 
       // Call the optimize-route Edge Function
       const { data, error } = await supabase.functions.invoke('optimize-route', {
-        body: {
-          route: routeData,
-          trafficData: trafficData || [],
-        },
+        body: optimizationRequest,
       });
 
       if (error) {
@@ -69,7 +79,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
       toast({
         title: "Route Optimized",
-        description: "AI recommendations ready",
+        description: `Estimated time: ${estimatedDuration} minutes`,
         duration: 3000,
       });
     } catch (error) {
@@ -91,7 +101,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
           <Clock className="w-5 h-5 text-accent" />
-          <span>Estimated Time: {currentRoute?.estimated_duration || 25} mins</span>
+          <span>Estimated Time: {currentRoute?.estimated_duration || Math.round(parseFloat(currentRoute?.distance || '12.5') * 3)} mins</span>
         </div>
         
         <div className="flex items-center space-x-2">
