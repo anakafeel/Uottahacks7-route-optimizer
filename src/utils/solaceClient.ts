@@ -1,5 +1,4 @@
 import * as solaceModule from 'solclientjs';
-import { supabase } from "@/integrations/supabase/client";
 
 const factoryProps = new solaceModule.SolclientFactoryProperties();
 factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
@@ -35,18 +34,19 @@ class SolaceClient {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
       if (configError || !config) {
+        console.error('Failed to get Solace configuration:', configError);
         throw new Error('Failed to get Solace configuration');
       }
 
       console.log('Retrieved Solace configuration:', {
-        url: config.SOLACE_HOST_URL,
+        hostUrl: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
-        userName: config.SOLACE_USERNAME,
-        // Don't log password
+        hasUsername: !!config.SOLACE_USERNAME,
+        hasPassword: !!config.SOLACE_PASSWORD
       });
 
       const properties = new solaceModule.SessionProperties({
-        url: config.SOLACE_HOST_URL,
+        url: `wss://${config.SOLACE_HOST_URL}:443`,
         vpnName: config.SOLACE_VPN_NAME,
         userName: config.SOLACE_USERNAME,
         password: config.SOLACE_PASSWORD,
@@ -84,9 +84,8 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          const error = sessionEvent instanceof Error ? sessionEvent : new Error('Connection failed');
-          console.error('Solace connection failed:', error);
-          reject(error);
+          console.error('Solace connection failed:', sessionEvent);
+          reject(new Error('Connection failed'));
         });
 
         this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
