@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
+import { solaceClient } from '@/utils/solaceClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -20,7 +21,39 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const initialized = useRef(false);
 
-  // Initialize map
+  // Initialize Solace connection
+  useEffect(() => {
+    const initSolace = async () => {
+      try {
+        await solaceClient.connect();
+        
+        // Subscribe to relevant topics
+        solaceClient.subscribe('traffic/updates', (message) => {
+          console.log('Received traffic update:', message);
+          // Handle traffic updates
+        });
+
+        toast({
+          title: "Connected to Solace",
+          description: "Real-time messaging initialized",
+        });
+      } catch (error) {
+        console.error('Failed to connect to Solace:', error);
+        toast({
+          title: "Connection Error",
+          description: "Failed to initialize real-time messaging",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initSolace();
+
+    return () => {
+      solaceClient.disconnect();
+    };
+  }, [toast]);
+
   useEffect(() => {
     if (!mapContainer.current || initialized.current) return;
 
