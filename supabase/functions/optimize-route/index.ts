@@ -6,15 +6,13 @@ const corsHeaders = {
 }
 
 interface RouteData {
-  centerLat: number;
-  centerLng: number;
-  zoom: number;
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  };
+  start_lat: number;
+  start_lng: number;
+  end_lat: number;
+  end_lng: number;
+  estimated_duration?: number;
+  distance?: string;
+  traffic_level?: string;
 }
 
 interface TrafficUpdate {
@@ -37,8 +35,11 @@ serve(async (req) => {
 
     // Prepare the prompt with route and traffic information
     const prompt = `Analyze this route and traffic data and provide optimization recommendations:
-      Route: Starting at ${route.centerLat},${route.centerLng}
-      Current traffic conditions: ${JSON.stringify(trafficData)}
+      Route: From ${route.start_lat},${route.start_lng} to ${route.end_lat},${route.end_lng}
+      Current traffic level: ${route.traffic_level || 'Medium'}
+      Estimated duration: ${route.estimated_duration || 25} minutes
+      Distance: ${route.distance || '12.5'} km
+      Traffic conditions: ${JSON.stringify(trafficData)}
       
       Provide recommendations in this format:
       1. Alternative routes

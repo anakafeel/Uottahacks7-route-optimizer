@@ -33,13 +33,24 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
       if (trafficError) throw trafficError;
 
-      console.log('Sending optimization request with:', { currentRoute, trafficData });
+      // Create a default route if none is provided
+      const routeData = currentRoute || {
+        start_lat: 45.4215,
+        start_lng: -75.6972,
+        end_lat: 45.4515,
+        end_lng: -75.7272,
+        estimated_duration: 25,
+        distance: '12.5',
+        traffic_level: 'Medium'
+      };
+
+      console.log('Sending optimization request with:', { routeData, trafficData });
 
       // Call the optimize-route Edge Function
       const { data, error } = await supabase.functions.invoke('optimize-route', {
         body: {
-          route: currentRoute,
-          trafficData,
+          route: routeData,
+          trafficData: trafficData || [],
         },
       });
 
