@@ -100,7 +100,7 @@ class SolaceClient {
     }
   }
 
-  subscribe(topic: string, callback: (message: solaceModule.Message) => void): void {
+  subscribe(topic: string, callback: (message: any) => void): void {
     if (!this.session || !this.connected) {
       throw new Error('Not connected to Solace');
     }
@@ -110,7 +110,6 @@ class SolaceClient {
         solaceModule.SolclientFactory.createTopicDestination(topic),
         true,
         topic,
-        0, // correlation key (number expected by the Solace API)
         (session: solaceModule.Session, message: solaceModule.Message) => {
           callback(message);
         }
