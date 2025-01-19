@@ -1,12 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React from 'react';
+import Map from '@/components/Map';
+import RoutePanel from '@/components/RoutePanel';
+import { useToast } from '@/components/ui/use-toast';
 
 const Index = () => {
+  const { toast } = useToast();
+
+  const handleRouteUpdate = (route: any) => {
+    // TODO: Implement Solace message handling
+    console.log('Route updated:', route);
+    
+    toast({
+      title: "Route Updated",
+      description: "New route optimization available",
+    });
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="relative w-full h-screen bg-background">
+      <Map onRouteUpdate={handleRouteUpdate} />
+      <RoutePanel />
     </div>
   );
 };
