@@ -94,19 +94,6 @@ export class ConnectionManager {
     });
   }
 
-  private async reapplySubscriptions(): Promise<void> {
-    if (!this.session || !this.connected) return;
-
-    for (const [topic, callback] of this.subscriptions.entries()) {
-      try {
-        await this.subscribe(topic, callback);
-        console.log(`Resubscribed to topic: ${topic}`);
-      } catch (error) {
-        console.error(`Error resubscribing to topic ${topic}:`, error);
-      }
-    }
-  }
-
   async subscribe(topic: string, callback: MessageCallback): Promise<void> {
     if (!this.session || !this.connected) {
       throw new Error('Not connected to Solace');
@@ -120,6 +107,19 @@ export class ConnectionManager {
     } catch (error) {
       console.error('Error subscribing to topic:', error);
       throw error;
+    }
+  }
+
+  private async reapplySubscriptions(): Promise<void> {
+    if (!this.session || !this.connected) return;
+
+    for (const [topic, callback] of this.subscriptions.entries()) {
+      try {
+        await this.subscribe(topic, callback);
+        console.log(`Resubscribed to topic: ${topic}`);
+      } catch (error) {
+        console.error(`Error resubscribing to topic ${topic}:`, error);
+      }
     }
   }
 

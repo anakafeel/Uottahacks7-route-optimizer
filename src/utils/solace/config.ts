@@ -22,13 +22,13 @@ export const createSessionProperties = (config: {
     userName: config.userName,
     password: config.password,
     connectTimeoutInMsecs: CONNECTION_TIMEOUT,
-    reconnectRetries: 3,
+    reconnectRetries: MAX_RECONNECT_ATTEMPTS,
     generateSendTimestamps: true,
     generateReceiveTimestamps: true,
     reapplySubscriptions: true,
     keepAliveIntervalInMsecs: 3000,
     keepAliveIntervalsLimit: 10,
-    connectRetries: 3,
+    connectRetries: MAX_RECONNECT_ATTEMPTS,
     reconnectRetryWaitInMsecs: RECONNECT_INTERVAL,
   });
 };

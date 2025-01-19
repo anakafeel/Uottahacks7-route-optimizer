@@ -1,6 +1,4 @@
-import * as solaceModule from 'solclientjs';
-import { supabase } from "@/integrations/supabase/client";
-import { initializeSolaceFactory, createSessionProperties } from './solace/config';
+import { initializeSolaceFactory } from './solace/config';
 import { ConnectionManager } from './solace/connectionManager';
 import type { MessageCallback } from './solace/types';
 

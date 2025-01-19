@@ -9,4 +9,9 @@ export interface SolaceConfig {
   password: string;
 }
 
+export interface SolaceMessage {
+  topic: string;
+  payload: any;
+}
+
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
