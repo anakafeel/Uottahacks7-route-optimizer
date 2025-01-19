@@ -62,6 +62,7 @@ class SolaceClient {
           reject(new Error('Connection timeout'));
         }, properties.connectTimeoutInMsecs);
 
+        // Set up detailed event logging
         this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
           clearTimeout(connectionTimeout);
           this.connected = true;
@@ -75,8 +76,7 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          console.error('Solace connection failed:', sessionEvent);
-          // Use toString() instead of accessing infoStr directly
+          console.error('Solace connection failed:', sessionEvent.toString());
           reject(new Error(`Connection failed: ${sessionEvent.toString()}`));
         });
 
@@ -84,6 +84,15 @@ class SolaceClient {
           this.connected = false;
           this.connecting = false;
           console.log('Disconnected from Solace');
+        });
+
+        // Add more detailed event logging
+        this.session.on(solace.SessionEventCode.CONNECTING, () => {
+          console.log('Connecting to Solace...');
+        });
+
+        this.session.on(solace.SessionEventCode.SUBSCRIPTION_ERROR, (sessionEvent) => {
+          console.error('Subscription error:', sessionEvent.toString());
         });
 
         try {
