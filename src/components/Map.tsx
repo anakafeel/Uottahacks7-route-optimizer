@@ -18,70 +18,64 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const { toast } = useToast();
   const markers = useRef<{ [key: string]: L.Marker }>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const initialized = useRef(false);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || initialized.current) return;
+    if (!mapContainer.current || map.current) return;
 
-    // Wait for DOM to be ready
-    requestAnimationFrame(() => {
-      if (!mapContainer.current) return;
-      
-      initialized.current = true;
-      
-      map.current = L.map(mapContainer.current, {
-        zoomControl: true,
-        scrollWheelZoom: true,
-      }).setView([45.4215, -75.6972], 13);
+    // Create map instance
+    map.current = L.map(mapContainer.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+    }).setView([45.4215, -75.6972], 13);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map.current);
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map.current);
 
-      // Mock route data for testing
-      const mockRoute = {
-        id: '123',
-        start_lat: 45.4215,
-        start_lng: -75.6972,
-        end_lat: 45.4515,
-        end_lng: -75.6872,
-        traffic_level: 'medium',
-        estimated_duration: 25,
-        weather_conditions: 'clear'
-      };
+    // Mock route data for testing
+    const mockRoute = {
+      id: '123',
+      start_lat: 45.4215,
+      start_lng: -75.6972,
+      end_lat: 45.4515,
+      end_lng: -75.6872,
+      traffic_level: 'medium',
+      estimated_duration: 25,
+      weather_conditions: 'clear'
+    };
 
-      // Draw the route on the map after it's initialized
-      const startMarker = L.marker([mockRoute.start_lat, mockRoute.start_lng])
-        .addTo(map.current)
-        .bindPopup('Start Point');
+    // Draw the route on the map
+    const startMarker = L.marker([mockRoute.start_lat, mockRoute.start_lng])
+      .addTo(map.current)
+      .bindPopup('Start Point');
 
-      const endMarker = L.marker([mockRoute.end_lat, mockRoute.end_lng])
-        .addTo(map.current)
-        .bindPopup('End Point');
+    const endMarker = L.marker([mockRoute.end_lat, mockRoute.end_lng])
+      .addTo(map.current)
+      .bindPopup('End Point');
 
-      const routeLine = L.polyline(
-        [[mockRoute.start_lat, mockRoute.start_lng], [mockRoute.end_lat, mockRoute.end_lng]],
-        { color: 'blue', weight: 3 }
-      ).addTo(map.current);
+    const routeLine = L.polyline(
+      [[mockRoute.start_lat, mockRoute.start_lng], [mockRoute.end_lat, mockRoute.end_lng]],
+      { color: 'blue', weight: 3 }
+    ).addTo(map.current);
 
-      const bounds = L.latLngBounds([
-        [mockRoute.start_lat, mockRoute.start_lng],
-        [mockRoute.end_lat, mockRoute.end_lng]
-      ]);
-      map.current.fitBounds(bounds, { padding: [50, 50] });
+    const bounds = L.latLngBounds([
+      [mockRoute.start_lat, mockRoute.start_lng],
+      [mockRoute.end_lat, mockRoute.end_lng]
+    ]);
+    map.current.fitBounds(bounds, { padding: [50, 50] });
 
-      // Only trigger route update once on initial load
-      if (onRouteUpdate) {
-        onRouteUpdate(mockRoute);
-      }
-    });
+    // Only trigger route update once on initial load
+    if (onRouteUpdate) {
+      onRouteUpdate(mockRoute);
+    }
 
+    // Cleanup function
     return () => {
       if (map.current) {
         map.current.remove();
         map.current = null;
-        initialized.current = false;
       }
     };
   }, [onRouteUpdate]);
@@ -140,8 +134,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         className="absolute inset-0 z-0"
         style={{ 
           width: '100%',
-          height: '100%',
-          backgroundColor: '#f0f0f0' // Light background while map loads
+          height: '100%'
         }} 
       />
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
