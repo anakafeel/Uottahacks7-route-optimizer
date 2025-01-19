@@ -45,6 +45,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   }, []);
 
   const handleTrafficUpdate = (update: TrafficUpdate) => {
+    console.log('Received traffic update:', update);
     setTrafficUpdates(prev => [...prev, update]);
   };
 

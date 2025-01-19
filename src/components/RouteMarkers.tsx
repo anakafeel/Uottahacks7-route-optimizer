@@ -13,11 +13,21 @@ interface RouteMarkersProps {
 const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
   const startMarker = useRef<L.Marker | null>(null);
   const endMarker = useRef<L.Marker | null>(null);
+  const routeLine = useRef<L.Polyline | null>(null);
   const { toast } = useToast();
 
   const calculateRoute = async (start: MapLocation, end: MapLocation) => {
     try {
       console.log('Calculating route:', { start, end });
+      
+      // Draw a line between points
+      if (routeLine.current) {
+        routeLine.current.remove();
+      }
+      routeLine.current = L.polyline(
+        [[start.lat, start.lng], [end.lat, end.lng]], 
+        { color: 'blue', weight: 3 }
+      ).addTo(map);
       
       // Calculate actual distance using Leaflet
       const distance = map.distance([start.lat, start.lng], [end.lat, end.lng]);
@@ -57,6 +67,7 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
           end,
           timestamp: new Date().toISOString()
         }));
+        console.log('Published route request to Solace');
       } catch (solaceError) {
         console.warn('Solace publish failed (non-critical):', solaceError);
       }
@@ -72,7 +83,7 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
 
       toast({
         title: "Route Calculated",
-        description: "Optimization recommendations ready",
+        description: `Distance: ${distanceInKm.toFixed(2)}km, Est. Duration: ${estimatedDuration}min`,
         duration: 3000,
       });
     } catch (error) {
@@ -86,18 +97,31 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
   };
 
   const createMarker = (location: MapLocation) => {
-    const markerColor = location.type === 'start' ? 'green' : 'red';
+    const markerColor = location.type === 'start' ? '#22c55e' : '#ef4444';
     const markerLabel = location.type === 'start' ? 'S' : 'E';
     
     const icon = L.divIcon({
-      className: '',
+      className: 'custom-marker',
       html: `
-        <div style="width: 24px; height: 24px; background-color: ${markerColor}; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+        <div style="
+          width: 30px; 
+          height: 30px; 
+          background-color: ${markerColor}; 
+          border-radius: 50%; 
+          border: 3px solid white; 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          color: white; 
+          font-weight: bold; 
+          font-size: 14px;
+        ">
           ${markerLabel}
         </div>
       `,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
     });
 
     return L.marker([location.lat, location.lng], { 
@@ -141,6 +165,7 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
         // Reset markers if both exist
         if (startMarker.current) startMarker.current.remove();
         if (endMarker.current) endMarker.current.remove();
+        if (routeLine.current) routeLine.current.remove();
         
         startMarker.current = createMarker(location)
           .addTo(map)
@@ -173,6 +198,7 @@ const RouteMarkers: React.FC<RouteMarkersProps> = ({ map, onRouteUpdate }) => {
       map.off('click', handleMapClick);
       if (startMarker.current) startMarker.current.remove();
       if (endMarker.current) endMarker.current.remove();
+      if (routeLine.current) routeLine.current.remove();
     };
   }, [map, onRouteUpdate, toast]);
 
