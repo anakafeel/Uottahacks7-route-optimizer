@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,11 +6,13 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // Get environment variables
     const config = {
       SOLACE_HOST_URL: Deno.env.get('SOLACE_HOST_URL'),
       SOLACE_VPN_NAME: Deno.env.get('SOLACE_VPN_NAME'),
@@ -21,44 +23,39 @@ serve(async (req) => {
     // Validate all required environment variables
     const missingVars = Object.entries(config)
       .filter(([_, value]) => !value)
-      .map(([key]) => key);
+      .map(([key]) => key)
 
     if (missingVars.length > 0) {
-      console.error('Missing required Solace environment variables:', missingVars);
-      throw new Error(`Missing required Solace credentials: ${missingVars.join(', ')}`);
+      console.error('Missing required Solace environment variables:', missingVars)
+      throw new Error(`Missing required Solace credentials: ${missingVars.join(', ')}`)
     }
 
-    console.log('Returning Solace configuration:', {
-      hostUrl: config.SOLACE_HOST_URL,
-      vpnName: config.SOLACE_VPN_NAME,
-      hasUsername: !!config.SOLACE_USERNAME,
-      hasPassword: !!config.SOLACE_PASSWORD
-    });
+    console.log('Returning Solace configuration')
 
     return new Response(
       JSON.stringify(config),
-      {
-        headers: {
+      { 
+        headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        status: 200,
-      },
+        status: 200 
+      }
     )
   } catch (error) {
-    console.error('Error in get-solace-config function:', error);
+    console.error('Error in get-solace-config function:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message,
         details: 'Check Edge Function logs for more information'
       }),
-      {
-        headers: {
+      { 
+        headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        status: 500,
-      },
+        status: 500 
+      }
     )
   }
 })
