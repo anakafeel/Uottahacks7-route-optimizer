@@ -20,10 +20,8 @@ const Index = () => {
   };
 
   return (
-    <div className="relative min-h-screen">
-      <div className="absolute inset-0 bg-background">
-        <Map onRouteUpdate={handleRouteUpdate} />
-      </div>
+    <div className="relative w-full h-screen">
+      <Map onRouteUpdate={handleRouteUpdate} />
       <RoutePanel currentRoute={currentRoute} />
     </div>
   );
