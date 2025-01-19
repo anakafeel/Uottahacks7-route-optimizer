@@ -24,31 +24,34 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   useEffect(() => {
     if (!mapContainer.current || initialized.current) return;
 
-    initialized.current = true;
-    
-    map.current = L.map(mapContainer.current, {
-      zoomControl: true,
-      scrollWheelZoom: true,
-    }).setView([45.4215, -75.6972], 13);
+    // Wait for DOM to be ready
+    requestAnimationFrame(() => {
+      if (!mapContainer.current) return;
+      
+      initialized.current = true;
+      
+      map.current = L.map(mapContainer.current, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+      }).setView([45.4215, -75.6972], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map.current);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map.current);
 
-    // Mock route data for testing
-    const mockRoute = {
-      id: '123',
-      start_lat: 45.4215,
-      start_lng: -75.6972,
-      end_lat: 45.4515,
-      end_lng: -75.6872,
-      traffic_level: 'medium',
-      estimated_duration: 25,
-      weather_conditions: 'clear'
-    };
+      // Mock route data for testing
+      const mockRoute = {
+        id: '123',
+        start_lat: 45.4215,
+        start_lng: -75.6972,
+        end_lat: 45.4515,
+        end_lng: -75.6872,
+        traffic_level: 'medium',
+        estimated_duration: 25,
+        weather_conditions: 'clear'
+      };
 
-    // Draw the route on the map
-    if (map.current) {
+      // Draw the route on the map after it's initialized
       const startMarker = L.marker([mockRoute.start_lat, mockRoute.start_lng])
         .addTo(map.current)
         .bindPopup('Start Point');
@@ -57,24 +60,22 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         .addTo(map.current)
         .bindPopup('End Point');
 
-      // Draw a simple line between start and end points
       const routeLine = L.polyline(
         [[mockRoute.start_lat, mockRoute.start_lng], [mockRoute.end_lat, mockRoute.end_lng]],
         { color: 'blue', weight: 3 }
       ).addTo(map.current);
 
-      // Fit the map to show the entire route
       const bounds = L.latLngBounds([
         [mockRoute.start_lat, mockRoute.start_lng],
         [mockRoute.end_lat, mockRoute.end_lng]
       ]);
       map.current.fitBounds(bounds, { padding: [50, 50] });
-    }
 
-    // Only trigger route update once on initial load
-    if (onRouteUpdate) {
-      onRouteUpdate(mockRoute);
-    }
+      // Only trigger route update once on initial load
+      if (onRouteUpdate) {
+        onRouteUpdate(mockRoute);
+      }
+    });
 
     return () => {
       if (map.current) {
