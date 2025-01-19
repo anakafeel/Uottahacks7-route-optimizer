@@ -15,8 +15,8 @@ export class SubscriptionHandler {
       await new Promise<void>((resolve, reject) => {
         this.session.subscribe(
           topicDestination,
-          true,
-          topic,
+          requestConfirmation,
+          10000, // timeout in milliseconds
           (error) => {
             if (error) {
               console.error(`Error subscribing to ${topic}:`, error);
