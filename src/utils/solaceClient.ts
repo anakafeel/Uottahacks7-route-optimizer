@@ -1,1 +1,1 @@
-export { solaceClient } from './solace/client';
+export { messaging as solaceClient } from './solace/messaging';
