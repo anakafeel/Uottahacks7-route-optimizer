@@ -10,8 +10,10 @@ class SolaceClient {
   private session: solaceModule.Session | null = null;
   private connected: boolean = false;
   private connecting: boolean = false;
-  private connectionTimeout: number = 10000; // 10 seconds timeout
+  private connectionTimeout: number = 30000; // Increased timeout to 30 seconds
   private subscriptions: Map<string, (message: solaceModule.Message) => void> = new Map();
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
 
   private constructor() {}
 
@@ -23,8 +25,13 @@ class SolaceClient {
   }
 
   async connect(): Promise<void> {
-    if (this.connected || this.connecting) {
-      console.log('Already connected or connecting to Solace');
+    if (this.connected) {
+      console.log('Already connected to Solace');
+      return;
+    }
+
+    if (this.connecting) {
+      console.log('Connection attempt already in progress');
       return;
     }
 
@@ -52,12 +59,14 @@ class SolaceClient {
         userName: config.SOLACE_USERNAME,
         password: config.SOLACE_PASSWORD,
         connectTimeoutInMsecs: this.connectionTimeout,
-        reconnectRetries: 3,
+        reconnectRetries: -1, // Infinite retries
         generateSendTimestamps: true,
         generateReceiveTimestamps: true,
         reapplySubscriptions: true,
         keepAliveIntervalInMsecs: 3000,
         keepAliveIntervalsLimit: 10,
+        connectRetries: 3,
+        reconnectRetryWaitInMsecs: 10000, // 10 seconds between retries
       });
 
       console.log('Creating Solace session with URL:', properties.url);
@@ -77,9 +86,18 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = true;
           this.connecting = false;
+          this.reconnectAttempts = 0;
           console.log('Successfully connected to Solace');
           this.reapplySubscriptions();
           resolve();
+        });
+
+        this.session.on(solaceModule.SessionEventCode.CONNECTING, () => {
+          console.log('Connecting to Solace...');
+        });
+
+        this.session.on(solaceModule.SessionEventCode.RECONNECTING_NOTICE, () => {
+          console.log('Reconnecting to Solace...');
         });
 
         this.session.on(solaceModule.SessionEventCode.CONNECT_FAILED_ERROR, (sessionEvent) => {
@@ -87,13 +105,26 @@ class SolaceClient {
           this.connected = false;
           this.connecting = false;
           console.error('Solace connection failed:', sessionEvent);
-          reject(new Error('Connection failed'));
+          
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            setTimeout(() => this.connect(), 5000);
+          } else {
+            reject(new Error('Max reconnection attempts reached'));
+          }
         });
 
         this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
           this.connected = false;
           this.connecting = false;
           console.log('Disconnected from Solace');
+          
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            setTimeout(() => this.connect(), 5000);
+          }
         });
 
         try {
