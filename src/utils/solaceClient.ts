@@ -69,8 +69,11 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          console.error('Solace connection failed:', sessionEvent.infoStr);
-          reject(new Error(`Connection failed: ${sessionEvent.infoStr}`));
+          const errorMessage = sessionEvent instanceof Error 
+            ? sessionEvent.message 
+            : 'Connection failed';
+          console.error('Solace connection failed:', errorMessage);
+          reject(new Error(`Connection failed: ${errorMessage}`));
         });
 
         this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
