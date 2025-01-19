@@ -11,9 +11,10 @@ interface SolaceHandlerProps {
 const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteUpdate }) => {
   const connectionStatus = useSolaceConnection({
     onConnect: () => {
-      console.log('Setting up Solace subscriptions...');
+      console.log('Setting up Solace subscriptions after successful connection...');
       
       // Subscribe to traffic updates
+      console.log('Subscribing to traffic/updates topic...');
       solaceClient.subscribe('traffic/updates', (message) => {
         try {
           const binaryAttachment = message.getBinaryAttachment();
@@ -29,6 +30,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
       });
 
       // Subscribe to route updates
+      console.log('Subscribing to routes/updates topic...');
       solaceClient.subscribe('routes/updates', (message) => {
         try {
           const binaryAttachment = message.getBinaryAttachment();
@@ -42,6 +44,12 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
           console.error('Error processing route update:', error);
         }
       });
+    },
+    onDisconnect: () => {
+      console.log('Solace disconnected - cleaning up subscriptions');
+    },
+    onError: (error) => {
+      console.error('Solace connection error:', error);
     }
   });
 

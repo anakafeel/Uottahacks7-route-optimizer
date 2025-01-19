@@ -36,7 +36,14 @@ export const useSolaceConnection = ({
           throw new Error('Failed to get Solace configuration');
         }
 
-        console.log('Retrieved Solace configuration, attempting to connect...');
+        console.log('Retrieved Solace configuration:', {
+          hostUrl: config.SOLACE_HOST_URL,
+          vpnName: config.SOLACE_VPN_NAME,
+          hasUsername: !!config.SOLACE_USERNAME,
+          hasPassword: !!config.SOLACE_PASSWORD
+        });
+
+        console.log('Attempting to connect to Solace...');
         await solaceClient.connect();
         
         console.log('Successfully connected to Solace PubSub+');
