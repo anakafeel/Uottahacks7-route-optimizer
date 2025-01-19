@@ -11,18 +11,21 @@ serve(async (req) => {
   }
 
   try {
-    // These values are taken directly from the Solace console image
     const config = {
-      SOLACE_HOST_URL: 'mr-connection-tpv92rfqh.messaging.solace.cloud',
-      SOLACE_VPN_NAME: 'shiphappens',
+      SOLACE_HOST_URL: Deno.env.get('SOLACE_HOST_URL'),
+      SOLACE_VPN_NAME: Deno.env.get('SOLACE_VPN_NAME'),
       SOLACE_USERNAME: Deno.env.get('SOLACE_USERNAME'),
       SOLACE_PASSWORD: Deno.env.get('SOLACE_PASSWORD')
     }
 
-    // Validate required environment variables
-    if (!config.SOLACE_USERNAME || !config.SOLACE_PASSWORD) {
-      console.error('Missing required Solace credentials');
-      throw new Error('Missing required Solace credentials');
+    // Validate all required environment variables
+    const missingVars = Object.entries(config)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingVars.length > 0) {
+      console.error('Missing required Solace environment variables:', missingVars);
+      throw new Error(`Missing required Solace credentials: ${missingVars.join(', ')}`);
     }
 
     console.log('Returning Solace configuration:', {
