@@ -1,59 +1,121 @@
-import { initializeSolaceFactory, createSessionProperties } from './solace/config';
-import { ConnectionManager } from './solace/connectionManager';
-import type { MessageCallback } from './solace/types';
+import { solace } from 'solclientjs';
 import { supabase } from "@/integrations/supabase/client";
+import { sessionProperties } from './solace/config';
 
 class SolaceClient {
-  private static instance: SolaceClient;
-  private connectionManager: ConnectionManager;
-
-  private constructor() {
-    initializeSolaceFactory();
-    this.connectionManager = new ConnectionManager();
-  }
-
-  static getInstance(): SolaceClient {
-    if (!SolaceClient.instance) {
-      SolaceClient.instance = new SolaceClient();
-    }
-    return SolaceClient.instance;
-  }
+  private session: solace.Session | null = null;
+  private subscriptions: Set<string> = new Set();
 
   async connect(): Promise<void> {
+    if (this.session?.isConnected()) {
+      console.log('Already connected to Solace message router.');
+      return;
+    }
+
     try {
-      const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
-
-      if (configError || !config) {
-        console.error('Failed to get Solace configuration:', configError);
-        throw new Error('Failed to get Solace configuration');
-      }
-
-      console.log('Retrieved Solace configuration');
-      const sessionProperties = createSessionProperties(config);
+      // Fetch Solace configuration from Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('get-solace-config');
       
-      await this.connectionManager.setupSession(sessionProperties);
-      await this.connectionManager.connect();
+      if (error) throw error;
+      
+      const properties = sessionProperties(data);
+      this.session = solace.createSession(properties);
+
+      return new Promise((resolve, reject) => {
+        this.session!.on(solace.SessionEventCode.UP_NOTICE, () => {
+          console.log('Connected to Solace message router.');
+          resolve();
+        });
+
+        this.session!.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (error) => {
+          console.error('Connection failed:', error);
+          reject(error);
+        });
+
+        this.session!.on(solace.SessionEventCode.DISCONNECTED, () => {
+          console.log('Disconnected from Solace message router.');
+          this.subscriptions.clear();
+        });
+
+        this.session!.connect();
+      });
     } catch (error) {
       console.error('Error connecting to Solace:', error);
       throw error;
     }
   }
 
-  subscribe(topic: string, callback: MessageCallback): void {
-    this.connectionManager.subscribe(topic, callback);
-  }
-
-  async publish(topic: string, message: string): Promise<void> {
-    await this.connectionManager.publish(topic, message);
+  disconnect(): void {
+    if (this.session?.isConnected()) {
+      this.session.disconnect();
+      this.subscriptions.clear();
+    }
   }
 
   isConnected(): boolean {
-    return this.connectionManager.isConnected();
+    return this.session?.isConnected() || false;
   }
 
-  disconnect(): void {
-    this.connectionManager.disconnect();
+  async subscribe(topic: string, callback: (message: solace.Message) => void): Promise<void> {
+    if (!this.session?.isConnected()) {
+      await this.connect();
+    }
+
+    if (this.subscriptions.has(topic)) {
+      console.log(`Already subscribed to topic: ${topic}`);
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const topicObj = solace.SolclientFactory.createTopic(topic);
+        
+        this.session!.subscribe(
+          topicObj,
+          true,
+          topic,
+          10000,
+          (error) => {
+            if (error) {
+              console.error(`Subscribe error: ${error}`);
+              reject(error);
+              return;
+            }
+            console.log(`Subscribed to topic: ${topic}`);
+            this.subscriptions.add(topic);
+            this.session!.on(solace.SessionEventCode.MESSAGE, callback);
+            resolve();
+          }
+        );
+      } catch (error) {
+        console.error('Error in subscribe:', error);
+        reject(error);
+      }
+    });
+  }
+
+  async publish(topic: string, message: string): Promise<void> {
+    if (!this.session?.isConnected()) {
+      await this.connect();
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const topicObj = solace.SolclientFactory.createTopic(topic);
+        const msg = solace.SolclientFactory.createMessage();
+        msg.setDestination(topicObj);
+        msg.setBinaryAttachment(message);
+        msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+        
+        this.session!.send(msg);
+        console.log(`Published message to topic: ${topic}`);
+        resolve();
+      } catch (error) {
+        console.error('Error in publish:', error);
+        reject(error);
+      }
+    });
   }
 }
 
-export const solaceClient = SolaceClient.getInstance();
+export const solaceClient = new SolaceClient();
