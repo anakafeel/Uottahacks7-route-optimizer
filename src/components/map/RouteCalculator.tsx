@@ -14,16 +14,18 @@ export const calculateRoute = async (
   try {
     console.log('Calculating route:', { start, end });
     
-    // Draw a line between points
+    // Remove existing route line if present
     if (routeLine) {
       routeLine.remove();
     }
+
+    // Draw new route line
     const newRouteLine = L.polyline(
       [[start.lat, start.lng], [end.lat, end.lng]], 
-      { color: 'blue', weight: 3 }
+      { color: 'blue', weight: 3, opacity: 0.8 }
     ).addTo(map);
     
-    // Calculate actual distance using Leaflet
+    // Calculate distance using Leaflet
     const distance = map.distance([start.lat, start.lng], [end.lat, end.lng]);
     const distanceInKm = distance / 1000;
     const estimatedDuration = Math.round(distanceInKm * 3); // Rough estimate: 3 minutes per km
@@ -36,7 +38,7 @@ export const calculateRoute = async (
 
     if (trafficError) throw trafficError;
 
-    // Call the optimize-route Edge Function
+    // Call optimize-route Edge Function
     const { data, error } = await supabase.functions.invoke('optimize-route', {
       body: {
         route: {
@@ -54,16 +56,20 @@ export const calculateRoute = async (
 
     if (error) throw error;
 
-    // Try to publish to Solace
-    try {
-      await solaceClient.publish('route/request', JSON.stringify({
+    // Publish to Solace
+    if (solaceClient.isConnected()) {
+      const routeRequest = {
         start,
         end,
-        timestamp: new Date().toISOString()
-      }));
-      console.log('Published route request to Solace');
-    } catch (solaceError) {
-      console.warn('Solace publish failed (non-critical):', solaceError);
+        timestamp: new Date().toISOString(),
+        distance: distanceInKm,
+        duration: estimatedDuration
+      };
+
+      await solaceClient.publish('route/request', JSON.stringify(routeRequest));
+      console.log('Published route request to Solace:', routeRequest);
+    } else {
+      console.warn('Solace client not connected - route request not published');
     }
 
     onSuccess({
