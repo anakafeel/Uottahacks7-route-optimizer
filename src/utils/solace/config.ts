@@ -19,12 +19,15 @@ export const sessionProperties = (config: SolaceConfig) => {
     hasPassword: !!config.password
   });
 
-  const url = config.url.startsWith('ws://') || config.url.startsWith('wss://')
-    ? config.url
+  // Ensure proper WebSocket URL formatting
+  const wsUrl = config.url.includes('://') 
+    ? config.url 
     : `wss://${config.url}:443`;
 
+  console.log('Using WebSocket URL:', wsUrl);
+
   return {
-    url,
+    url: wsUrl,
     vpnName: config.vpnName,
     userName: config.userName,
     password: config.password,

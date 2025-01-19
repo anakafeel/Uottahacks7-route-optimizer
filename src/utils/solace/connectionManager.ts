@@ -11,12 +11,21 @@ export class ConnectionManager {
 
   async setupSession(properties: solaceModule.SessionProperties): Promise<void> {
     if (this.session) {
-      console.log('Session already exists');
-      return;
+      console.log('Session already exists, cleaning up...');
+      try {
+        this.session.dispose();
+      } catch (error) {
+        console.warn('Error disposing existing session:', error);
+      }
     }
 
     this.session = solaceModule.SolclientFactory.createSession(properties);
-    console.log('Created new Solace session');
+    console.log('Created new Solace session with properties:', {
+      url: properties.url,
+      vpnName: properties.vpnName,
+      connectTimeout: properties.connectTimeoutInMsecs,
+      reconnectRetries: properties.reconnectRetries
+    });
   }
 
   async connect(): Promise<void> {
@@ -24,8 +33,13 @@ export class ConnectionManager {
       throw new Error('Session not initialized');
     }
 
-    if (this.connected || this.connecting) {
-      console.log('Already connected or connecting');
+    if (this.connected) {
+      console.log('Already connected');
+      return;
+    }
+
+    if (this.connecting) {
+      console.log('Connection already in progress');
       return;
     }
 
@@ -34,16 +48,19 @@ export class ConnectionManager {
 
     return new Promise<void>((resolve, reject) => {
       const connectionTimeout = setTimeout(() => {
-        reject(new Error('Connection timeout'));
+        this.connecting = false;
+        reject(new Error('Connection timeout after ' + CONNECTION_TIMEOUT + 'ms'));
       }, CONNECTION_TIMEOUT);
 
       this.setupSessionHandlers(resolve, reject, connectionTimeout);
 
       try {
+        console.log('Attempting to connect session...');
         this.session!.connect();
       } catch (error) {
         clearTimeout(connectionTimeout);
         this.connecting = false;
+        console.error('Error during connect():', error);
         reject(error);
       }
     });
@@ -70,14 +87,15 @@ export class ConnectionManager {
       clearTimeout(connectionTimeout);
       this.connected = false;
       this.connecting = false;
-      console.error('Connection failed:', sessionEvent);
+      const errorMessage = sessionEvent.toString();
+      console.error('Connection failed:', errorMessage);
       
       if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         this.reconnectAttempts++;
         console.log(`Attempting reconnection ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
         setTimeout(() => this.connect(), RECONNECT_INTERVAL);
       } else {
-        reject(new Error('Max reconnection attempts reached'));
+        reject(new Error(`Connection failed: ${errorMessage}`));
       }
     });
 
@@ -102,8 +120,24 @@ export class ConnectionManager {
     try {
       console.log(`Subscribing to topic: ${topic}`);
       const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
-      this.session.subscribe(topicDestination, true, callback, 10000);
-      this.subscriptions.set(topic, callback);
+      await new Promise<void>((resolve, reject) => {
+        this.session!.subscribe(
+          topicDestination,
+          true,
+          callback,
+          10000,
+          (error) => {
+            if (error) {
+              console.error(`Error subscribing to ${topic}:`, error);
+              reject(error);
+            } else {
+              console.log(`Successfully subscribed to ${topic}`);
+              this.subscriptions.set(topic, callback);
+              resolve();
+            }
+          }
+        );
+      });
     } catch (error) {
       console.error('Error subscribing to topic:', error);
       throw error;
@@ -143,11 +177,16 @@ export class ConnectionManager {
 
   disconnect(): void {
     if (this.session) {
-      this.session.disconnect();
-      this.session = null;
-      this.connected = false;
-      this.connecting = false;
-      this.subscriptions.clear();
+      try {
+        this.session.disconnect();
+      } catch (error) {
+        console.error('Error during disconnect:', error);
+      } finally {
+        this.session = null;
+        this.connected = false;
+        this.connecting = false;
+        this.subscriptions.clear();
+      }
     }
   }
 
