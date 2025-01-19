@@ -121,11 +121,11 @@ export class ConnectionManager {
       console.log(`Subscribing to topic: ${topic}`);
       const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
       await new Promise<void>((resolve, reject) => {
+        // Updated subscribe call to match the expected number of arguments
         this.session!.subscribe(
           topicDestination,
-          true,
-          callback,
-          10000,
+          true, // requestConfirmation
+          topic, // correlationKey
           (error) => {
             if (error) {
               console.error(`Error subscribing to ${topic}:`, error);
@@ -137,6 +137,13 @@ export class ConnectionManager {
             }
           }
         );
+      });
+
+      // Set up message event handler for this subscription
+      this.session.on(solaceModule.SessionEventCode.MESSAGE, (message) => {
+        if (message.getDestination().getName() === topic) {
+          callback(message);
+        }
       });
     } catch (error) {
       console.error('Error subscribing to topic:', error);
