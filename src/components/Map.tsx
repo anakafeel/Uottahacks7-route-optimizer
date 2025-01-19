@@ -32,20 +32,27 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     if (!mapContainer.current || map.current) return;
 
     // Create map instance
-    map.current = L.map(mapContainer.current, {
-      zoomControl: true,
-      scrollWheelZoom: true,
-    }).setView([45.4215, -75.6972], 13);
+    const initMap = () => {
+      if (!mapContainer.current) return;
+      
+      map.current = L.map(mapContainer.current, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+      }).setView([45.4215, -75.6972], 13);
 
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map.current);
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map.current);
 
-    // Only trigger route update once on initial load
-    if (onRouteUpdate) {
-      onRouteUpdate(mockRoute);
-    }
+      // Only trigger route update once on initial load
+      if (onRouteUpdate) {
+        onRouteUpdate(mockRoute);
+      }
+    };
+
+    // Ensure DOM is ready before initializing map
+    requestAnimationFrame(initMap);
 
     // Cleanup function
     return () => {
