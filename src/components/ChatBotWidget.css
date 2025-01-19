@@ -1,0 +1,51 @@
+.chatbot-widget {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background-color: #2563eb; /* Chatbot button background */
+    color: white; /* The text color inside the button */
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+  }
+  
+  .chatbot-popup {
+    position: fixed;
+    bottom: 80px;
+    left: 16px;
+    width: 320px;
+    background-color: white; /* Ensures a white background popup */
+    color: black; /* Set text inside the popup to black */
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+    z-index: 1000;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .chatbot-popup h3 {
+    color: black; /* Make the chatbot header black */
+  }
+  
+  .chatbot-popup .chat-history {
+    color: #333; /* Set chat history text to dark gray */
+  }
+  
+  .chatbot-popup input {
+    color: black; /* Ensure text input is black */
+    background-color: #f9f9f9; /* Light gray background for input */
+  }
+  
+  .chatbot-popup button {
+    background-color: #2563eb; /* Button background */
+    color: white; /* Button text color */
+  }
+  
