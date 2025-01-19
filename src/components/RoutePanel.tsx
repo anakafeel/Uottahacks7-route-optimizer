@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,25 +14,49 @@ interface RoutePanelProps {
 
 const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelProps) => {
   const { toast } = useToast();
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   const handleOptimizeRoute = async () => {
     try {
+      setIsOptimizing(true);
       toast({
         title: "Optimizing Route",
-        description: "Calculating best route based on real-time traffic...",
+        description: "Calculating best route using AI...",
       });
 
-      const { error } = await supabase
-        .from('drivers')
-        .update({
-          current_lat: 40.7128,
-          current_lng: -74.0060,
-          status: 'active'
-        })
-        .eq('id', 'your-driver-id');
+      // Get current traffic data
+      const { data: trafficData, error: trafficError } = await supabase
+        .from('traffic_updates')
+        .select('*')
+        .limit(5);
+
+      if (trafficError) throw trafficError;
+
+      // Call the optimize-route Edge Function
+      const { data: optimizationData, error } = await supabase.functions.invoke('optimize-route', {
+        body: {
+          route: currentRoute,
+          trafficData,
+        },
+      });
 
       if (error) throw error;
 
+      // Update route with AI recommendations
+      const { error: updateError } = await supabase
+        .from('routes')
+        .update({
+          traffic_prediction: optimizationData.recommendations,
+          status: 'optimized'
+        })
+        .eq('id', currentRoute?.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Route Optimized",
+        description: "New recommendations available",
+      });
     } catch (error) {
       console.error('Error optimizing route:', error);
       toast({
@@ -40,6 +64,8 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
         description: "Failed to optimize route. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
@@ -66,9 +92,9 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
       <ScrollArea className="h-48 mt-4">
         <div className="space-y-2">
-          <h4 className="font-medium">Alternative Routes</h4>
+          <h4 className="font-medium">AI Recommendations</h4>
           <p className="text-sm text-muted-foreground">
-            Alternative routes will be calculated based on real-time traffic data
+            Route optimization powered by Groq AI
           </p>
         </div>
       </ScrollArea>
@@ -78,8 +104,9 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
           className="w-full"
           variant="secondary"
           onClick={handleOptimizeRoute}
+          disabled={isOptimizing}
         >
-          Optimize Route
+          {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
         </Button>
       </div>
     </Card>
