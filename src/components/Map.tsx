@@ -1,24 +1,24 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import { solaceClient } from '@/utils/solaceClient';
+import RouteMarkers from './RouteMarkers';
+import TrafficMarker from './TrafficMarker';
+import SolaceHandler from './SolaceHandler';
+import type { MapLocation, TrafficUpdate, RouteOptimization } from '@/types/map';
 
 interface MapProps {
-  onRouteUpdate?: (route: any) => void;
+  onRouteUpdate?: (route: RouteOptimization) => void;
 }
-
-type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
 
 const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const { toast } = useToast();
-  const markers = useRef<{ [key: string]: L.Marker }>({});
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const initialized = useRef(false);
+  const [trafficUpdates, setTrafficUpdates] = useState<TrafficUpdate[]>([]);
+  const { toast } = useToast();
 
   // Initialize map
   useEffect(() => {
@@ -35,25 +35,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map.current);
 
-    // Only trigger route update once on initial load
-    if (onRouteUpdate && map.current) {
-      const center = map.current.getCenter();
-      const bounds = map.current.getBounds();
-      
-      onRouteUpdate({
-        status: 'loaded',
-        centerLng: center.lng,
-        centerLat: center.lat,
-        zoom: map.current.getZoom(),
-        bounds: {
-          west: bounds.getWest(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          north: bounds.getNorth()
-        }
-      });
-    }
-
     return () => {
       if (map.current) {
         map.current.remove();
@@ -61,61 +42,38 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         initialized.current = false;
       }
     };
-  }, [onRouteUpdate]);
-
-  // Subscribe to real-time driver updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('drivers-location')
-      .on<DriverUpdate>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        (payload) => {
-          if (!map.current) return;
-
-          const driver = payload.new as DriverUpdate;
-          
-          if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
-            console.warn('Invalid driver data received:', driver);
-            return;
-          }
-
-          if (markers.current[driver.id]) {
-            markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
-          } else {
-            const driverIcon = L.divIcon({
-              className: 'driver-marker',
-              html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
-              iconSize: [20, 20]
-            });
-
-            markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
-              icon: driverIcon
-            }).addTo(map.current);
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
   }, []);
+
+  const handleTrafficUpdate = (update: TrafficUpdate) => {
+    console.log('Received traffic update:', update);
+    setTrafficUpdates(prev => [...prev, update]);
+  };
 
   return (
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" style={{ zIndex: 0 }} />
+      {map.current && (
+        <>
+          <RouteMarkers 
+            map={map.current} 
+            onRouteUpdate={onRouteUpdate} 
+          />
+          <SolaceHandler
+            onTrafficUpdate={handleTrafficUpdate}
+            onRouteUpdate={console.log}
+          />
+          {trafficUpdates.map((update, index) => (
+            <TrafficMarker
+              key={index}
+              map={map.current}
+              update={update}
+            />
+          ))}
+        </>
+      )}
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
-        <p className="text-sm text-muted-foreground">Ottawa Region</p>
+        <p className="text-sm text-muted-foreground">Click anywhere to set start point (green), then end point (red)</p>
       </div>
     </div>
   );

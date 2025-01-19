@@ -48,45 +48,57 @@ export type Database = {
       routes: {
         Row: {
           actual_duration: number | null
+          ai_recommendations: string[] | null
           created_at: string
           driver_id: string
           end_lat: number
           end_lng: number
           estimated_duration: number | null
           id: string
+          route_alternatives: Json[] | null
           start_lat: number
           start_lng: number
           status: string | null
           traffic_level: string | null
+          traffic_prediction: Json | null
           updated_at: string
+          weather_conditions: string | null
         }
         Insert: {
           actual_duration?: number | null
+          ai_recommendations?: string[] | null
           created_at?: string
           driver_id: string
           end_lat: number
           end_lng: number
           estimated_duration?: number | null
           id?: string
+          route_alternatives?: Json[] | null
           start_lat: number
           start_lng: number
           status?: string | null
           traffic_level?: string | null
+          traffic_prediction?: Json | null
           updated_at?: string
+          weather_conditions?: string | null
         }
         Update: {
           actual_duration?: number | null
+          ai_recommendations?: string[] | null
           created_at?: string
           driver_id?: string
           end_lat?: number
           end_lng?: number
           estimated_duration?: number | null
           id?: string
+          route_alternatives?: Json[] | null
           start_lat?: number
           start_lng?: number
           status?: string | null
           traffic_level?: string | null
+          traffic_prediction?: Json | null
           updated_at?: string
+          weather_conditions?: string | null
         }
         Relationships: [
           {
@@ -97,6 +109,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      traffic_updates: {
+        Row: {
+          city: string
+          created_at: string
+          description: string | null
+          id: string
+          location_lat: number
+          location_lng: number
+          severity: string | null
+          update_type: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location_lat: number
+          location_lng: number
+          severity?: string | null
+          update_type: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          location_lat?: number
+          location_lng?: number
+          severity?: string | null
+          update_type?: string
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -1,0 +1,1 @@
+export { messaging as solaceClient } from './solace/messaging';
