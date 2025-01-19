@@ -7,13 +7,13 @@ const Index = () => {
   const { toast } = useToast();
 
   const handleRouteUpdate = (route: any) => {
-    // TODO: Implement Solace message handling
-    console.log('Route updated:', route);
-    
-    toast({
-      title: "Route Updated",
-      description: "New route optimization available",
-    });
+    // Only show toast on initial load
+    if (route.status === 'loaded') {
+      toast({
+        title: "Map Ready",
+        description: "Route optimization available",
+      });
+    }
   };
 
   return (
