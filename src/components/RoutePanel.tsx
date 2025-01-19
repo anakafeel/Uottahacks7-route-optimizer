@@ -17,13 +17,11 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
 
   const handleOptimizeRoute = async () => {
     try {
-      // Simulate route optimization (replace with actual Solace integration)
       toast({
         title: "Optimizing Route",
         description: "Calculating best route based on real-time traffic...",
       });
 
-      // Example: Update driver location
       const { error } = await supabase
         .from('drivers')
         .update({
@@ -31,7 +29,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
           current_lng: -74.0060,
           status: 'active'
         })
-        .eq('id', 'your-driver-id'); // Replace with actual driver ID
+        .eq('id', 'your-driver-id');
 
       if (error) throw error;
 
@@ -46,7 +44,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
   };
 
   return (
-    <Card className="absolute right-4 top-20 w-80 bg-background/90 p-4 shadow-lg">
+    <Card className="fixed right-4 top-20 w-80 bg-background/95 p-4 shadow-xl backdrop-blur-sm border border-border z-[1000]">
       <h3 className="text-lg font-semibold mb-4">Route Details</h3>
       
       <div className="space-y-4">
