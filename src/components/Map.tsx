@@ -35,10 +35,11 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       map.current = null;
     }
 
-    // Only initialize if container exists and map doesn't
+    // Only initialize if container exists
     if (!mapContainer.current) return;
 
-    const initMap = () => {
+    // Ensure DOM is ready before initializing map
+    const timer = setTimeout(() => {
       try {
         map.current = L.map(mapContainer.current!, {
           zoomControl: true,
@@ -57,13 +58,11 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       } catch (error) {
         console.error('Error initializing map:', error);
       }
-    };
-
-    // Ensure DOM is ready before initializing map
-    requestAnimationFrame(initMap);
+    }, 100); // Small delay to ensure DOM is ready
 
     // Cleanup function
     return () => {
+      clearTimeout(timer);
       if (map.current) {
         map.current.remove();
         map.current = null;

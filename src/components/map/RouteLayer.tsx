@@ -18,27 +18,27 @@ const RouteLayer = ({ map, route }: RouteLayerProps) => {
     // Ensure map is ready before adding markers
     if (!map || !map.getContainer()) return;
 
-    const addMarkersAndLine = () => {
+    const timer = setTimeout(() => {
       // Clean up existing markers and line
       if (markersRef.current.start) markersRef.current.start.remove();
       if (markersRef.current.end) markersRef.current.end.remove();
       if (markersRef.current.line) markersRef.current.line.remove();
 
-      // Add markers
-      markersRef.current.start = L.marker([route.start_lat, route.start_lng]);
-      markersRef.current.end = L.marker([route.end_lat, route.end_lng]);
-      
-      // Draw route line
-      markersRef.current.line = L.polyline(
-        [[route.start_lat, route.start_lng], [route.end_lat, route.end_lng]],
-        { color: 'blue', weight: 3 }
-      );
+      try {
+        // Add markers
+        markersRef.current.start = L.marker([route.start_lat, route.start_lng])
+          .bindPopup('Start Point')
+          .addTo(map);
 
-      // Only add to map if map is still valid
-      if (map && map.getContainer()) {
-        markersRef.current.start.addTo(map).bindPopup('Start Point');
-        markersRef.current.end.addTo(map).bindPopup('End Point');
-        markersRef.current.line.addTo(map);
+        markersRef.current.end = L.marker([route.end_lat, route.end_lng])
+          .bindPopup('End Point')
+          .addTo(map);
+        
+        // Draw route line
+        markersRef.current.line = L.polyline(
+          [[route.start_lat, route.start_lng], [route.end_lat, route.end_lng]],
+          { color: 'blue', weight: 3 }
+        ).addTo(map);
 
         // Fit bounds to show the entire route
         const bounds = L.latLngBounds([
@@ -46,11 +46,10 @@ const RouteLayer = ({ map, route }: RouteLayerProps) => {
           [route.end_lat, route.end_lng]
         ]);
         map.fitBounds(bounds, { padding: [50, 50] });
+      } catch (error) {
+        console.error('Error adding route markers:', error);
       }
-    };
-
-    // Wait for next tick to ensure map is fully initialized
-    const timer = setTimeout(addMarkersAndLine, 100);
+    }, 200); // Delay to ensure map is fully initialized
 
     // Cleanup
     return () => {
