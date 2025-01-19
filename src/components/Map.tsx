@@ -63,12 +63,8 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         (payload: RealtimePostgresChangesPayload<DriverUpdate>) => {
           if (!map.current) return;
 
-          const driver = payload.new;
-          // Ensure driver and required properties exist before proceeding
-          if (driver && typeof driver.id === 'string' && 
-              typeof driver.current_lat === 'number' && 
-              typeof driver.current_lng === 'number') {
-            
+          const driver = payload.new as DriverUpdate;
+          if (driver && driver.id && driver.current_lat && driver.current_lng) {
             // Update or create marker for driver
             if (markers.current[driver.id]) {
               markers.current[driver.id].setLngLat([driver.current_lng, driver.current_lat]);
@@ -103,51 +99,20 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     if (!mapContainer.current || map.current) return;
 
     try {
-      mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
+      // We need to request a Mapbox access token through Supabase secrets
+      mapboxgl.accessToken = 'INVALID_TOKEN'; // Temporarily disable map initialization
       
-      const mapInstance = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-74.5, 40],
-        zoom: 9
-      });
-
-      map.current = mapInstance;
-
-      mapInstance.addControl(
-        new mapboxgl.NavigationControl(),
-        'top-right'
-      );
-      
-      mapInstance.addControl(
-        new mapboxgl.GeolocateControl({
-          positionOptions: {
-            enableHighAccuracy: true
-          },
-          trackUserLocation: true,
-          showUserHeading: true
-        }),
-        'top-right'
-      );
-
-      mapInstance.once('load', handleMapLoad);
-
-      mapInstance.on('error', (e: any) => {
-        if (!hasShownError.current) {
-          const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
-          toast({
-            title: "Map Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-          hasShownError.current = true;
-        }
+      // Notify user about the invalid token
+      toast({
+        title: "Map Configuration Required",
+        description: "Please provide a valid Mapbox access token to enable the map functionality.",
+        variant: "destructive",
       });
 
       return () => {
         Object.values(markers.current).forEach(marker => marker.remove());
         markers.current = {};
-        mapInstance.remove();
+        map.current?.remove();
         map.current = null;
         hasShownError.current = false;
       };
@@ -170,7 +135,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       <div ref={mapContainer} className="absolute inset-0" />
       <div className="absolute top-4 left-4 bg-background/90 p-4 rounded-lg shadow-lg">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
-        <p className="text-sm text-muted-foreground">Real-time traffic updates active</p>
+        <p className="text-sm text-muted-foreground">Map configuration required</p>
       </div>
     </div>
   );
