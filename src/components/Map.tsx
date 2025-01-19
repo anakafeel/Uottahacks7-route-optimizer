@@ -18,64 +18,50 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const { toast } = useToast();
   const markers = useRef<{ [key: string]: L.Marker }>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const initialized = useRef(false);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    if (!mapContainer.current || initialized.current) return;
 
-    // Add a small delay to ensure container is ready
-    const timer = setTimeout(() => {
-      try {
-        map.current = L.map(mapContainer.current!, {
-          zoomControl: true,
-          scrollWheelZoom: true,
-        }).setView([45.4215, -75.6972], 13);
+    initialized.current = true;
+    
+    map.current = L.map(mapContainer.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+    }).setView([45.4215, -75.6972], 13);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map.current);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map.current);
 
-        // Only trigger route update once on initial load
-        if (onRouteUpdate && map.current) {
-          const center = map.current.getCenter();
-          const bounds = map.current.getBounds();
-          
-          onRouteUpdate({
-            status: 'loaded',
-            centerLng: center.lng,
-            centerLat: center.lat,
-            zoom: map.current.getZoom(),
-            bounds: {
-              west: bounds.getWest(),
-              south: bounds.getSouth(),
-              east: bounds.getEast(),
-              north: bounds.getNorth()
-            }
-          });
+    // Only trigger route update once on initial load
+    if (onRouteUpdate && map.current) {
+      const center = map.current.getCenter();
+      const bounds = map.current.getBounds();
+      
+      onRouteUpdate({
+        status: 'loaded',
+        centerLng: center.lng,
+        centerLat: center.lat,
+        zoom: map.current.getZoom(),
+        bounds: {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth()
         }
-
-        // Invalidate size after a short delay to ensure proper rendering
-        setTimeout(() => {
-          map.current?.invalidateSize();
-        }, 100);
-
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        toast({
-          title: "Map Initialization Error",
-          description: error instanceof Error ? error.message : "Failed to initialize map",
-          variant: "destructive",
-        });
-      }
-    }, 100);
+      });
+    }
 
     return () => {
       if (map.current) {
         map.current.remove();
         map.current = null;
+        initialized.current = false;
       }
     };
-  }, [onRouteUpdate, toast]);
+  }, [onRouteUpdate]);
 
   // Subscribe to real-time driver updates
   useEffect(() => {
