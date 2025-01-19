@@ -47,8 +47,10 @@ serve(async (req) => {
       3. Weather impact
       4. Safety considerations`
 
-    // Make request to Groq API directly
-    const response = await fetch('https://api.groq.com/v1/chat/completions', {
+    console.log('Sending prompt to Groq:', prompt)
+
+    // Make request to Groq API
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`,
@@ -71,15 +73,17 @@ serve(async (req) => {
       }),
     })
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.statusText}`)
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text()
+      console.error('Groq API error response:', errorText)
+      throw new Error(`Groq API error: ${groqResponse.statusText}. Details: ${errorText}`)
     }
 
-    const groqResponse = await response.json()
-    console.log('Groq API response:', groqResponse)
+    const groqData = await groqResponse.json()
+    console.log('Groq API response:', groqData)
 
     // Parse AI response and structure recommendations
-    const aiResponse = groqResponse.choices[0]?.message?.content || ''
+    const aiResponse = groqData.choices[0]?.message?.content || ''
     
     // Structure the recommendations
     const recommendations = {
@@ -108,7 +112,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in optimize-route function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       {
