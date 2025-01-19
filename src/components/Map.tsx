@@ -87,23 +87,28 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         (payload) => {
           if (!map.current) return;
 
-          const driver = payload.new;
-          if (driver?.id && driver?.current_lat && driver?.current_lng) {
-            // Update or create marker for driver
-            if (markers.current[driver.id]) {
-              markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
-            } else {
-              // Create custom icon for driver marker
-              const driverIcon = L.divIcon({
-                className: 'driver-marker',
-                html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
-                iconSize: [20, 20]
-              });
+          const driver = payload.new as DriverUpdate;
+          
+          // Type guard to ensure required properties exist
+          if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
+            console.warn('Invalid driver data received:', driver);
+            return;
+          }
 
-              markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
-                icon: driverIcon
-              }).addTo(map.current);
-            }
+          // Update or create marker for driver
+          if (markers.current[driver.id]) {
+            markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
+          } else {
+            // Create custom icon for driver marker
+            const driverIcon = L.divIcon({
+              className: 'driver-marker',
+              html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
+              iconSize: [20, 20]
+            });
+
+            markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
+              icon: driverIcon
+            }).addTo(map.current);
           }
         }
       )
