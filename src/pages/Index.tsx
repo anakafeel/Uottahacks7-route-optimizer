@@ -10,7 +10,7 @@ const Index = () => {
 
   const handleRouteUpdate = (route: any) => {
     // Only show toast once on initial load
-    if (route.status === 'loaded' && !toastShown.current) {
+    if (!toastShown.current) {
       toastShown.current = true;
       toast({
         title: "Map Ready",

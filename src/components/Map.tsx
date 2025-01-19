@@ -35,23 +35,21 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map.current);
 
+    // Mock route data for testing
+    const mockRoute = {
+      id: '123',
+      start_lat: 45.4215,
+      start_lng: -75.6972,
+      end_lat: 45.4515,
+      end_lng: -75.6872,
+      traffic_level: 'medium',
+      estimated_duration: 25,
+      weather_conditions: 'clear'
+    };
+
     // Only trigger route update once on initial load
     if (onRouteUpdate && map.current) {
-      const center = map.current.getCenter();
-      const bounds = map.current.getBounds();
-      
-      onRouteUpdate({
-        status: 'loaded',
-        centerLng: center.lng,
-        centerLat: center.lat,
-        zoom: map.current.getZoom(),
-        bounds: {
-          west: bounds.getWest(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          north: bounds.getNorth()
-        }
-      });
+      onRouteUpdate(mockRoute);
     }
 
     return () => {
