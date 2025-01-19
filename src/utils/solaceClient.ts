@@ -13,8 +13,13 @@ class SolaceClient {
   }
 
   async connect(): Promise<void> {
-    if (this.connected || this.connecting) {
-      console.log('Already connected or connecting to Solace');
+    if (this.connected) {
+      console.log('Already connected to Solace');
+      return;
+    }
+
+    if (this.connecting) {
+      console.log('Connection already in progress');
       return;
     }
 
@@ -25,7 +30,7 @@ class SolaceClient {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
       if (configError || !config) {
-        throw new Error('Failed to get Solace configuration');
+        throw new Error(`Failed to get Solace configuration: ${configError?.message || 'Unknown error'}`);
       }
 
       console.log('Retrieved Solace configuration successfully');
@@ -37,19 +42,26 @@ class SolaceClient {
         password: config.SOLACE_PASSWORD
       });
 
+      if (this.session) {
+        console.log('Cleaning up existing session...');
+        this.session.dispose();
+        this.session = null;
+      }
+
       this.session = solace.SolclientFactory.createSession(properties);
 
-      await new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         if (!this.session) {
+          this.connecting = false;
           reject(new Error('Failed to create Solace session'));
           return;
         }
 
         const connectionTimeout = setTimeout(() => {
+          this.connecting = false;
           reject(new Error('Connection timeout'));
-        }, properties.connectTimeoutInMsecs);
+        }, 30000); // 30 second timeout
 
-        // Set up event listeners before connecting
         this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
           clearTimeout(connectionTimeout);
           this.connected = true;
@@ -63,8 +75,8 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          console.error('Solace connection failed:', sessionEvent);
-          reject(new Error(`Connection failed: ${sessionEvent.toString()}`));
+          console.error('Solace connection failed:', sessionEvent.infoStr);
+          reject(new Error(`Connection failed: ${sessionEvent.infoStr}`));
         });
 
         this.session.on(solace.SessionEventCode.DISCONNECTED, () => {
@@ -94,9 +106,9 @@ class SolaceClient {
 
     for (const [topic, callback] of this.subscriptions.entries()) {
       try {
+        console.log(`Resubscribing to topic: ${topic}`);
         const topicDestination = solace.SolclientFactory.createTopicDestination(topic);
         await this.session.subscribe(topicDestination, true, callback, 10000);
-        console.log(`Resubscribed to topic: ${topic}`);
       } catch (error) {
         console.error(`Error resubscribing to topic ${topic}:`, error);
       }

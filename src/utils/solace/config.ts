@@ -1,7 +1,6 @@
 import solace from 'solclientjs';
 
-// Constants for connection management
-export const CONNECTION_TIMEOUT = 10000;
+export const CONNECTION_TIMEOUT = 30000;
 export const MAX_RECONNECT_ATTEMPTS = 5;
 export const RECONNECT_INTERVAL = 3000;
 
@@ -17,7 +16,6 @@ export const sessionProperties = (config: {
   userName: string;
   password: string;
 }) => {
-  // Log the configuration being used (without sensitive data)
   console.log('Creating Solace session with config:', {
     url: config.url,
     vpnName: config.vpnName,
@@ -25,11 +23,12 @@ export const sessionProperties = (config: {
     hasPassword: !!config.password
   });
 
+  const url = config.url.startsWith('ws://') || config.url.startsWith('wss://')
+    ? config.url
+    : `wss://${config.url}:443`;
+
   return {
-    // Ensure proper WebSocket URL formatting
-    url: config.url.startsWith('ws://') || config.url.startsWith('wss://') 
-      ? config.url 
-      : `wss://${config.url}`,  // Removed :443 as it's often included in the URL
+    url,
     vpnName: config.vpnName,
     userName: config.userName,
     password: config.password,
@@ -38,7 +37,7 @@ export const sessionProperties = (config: {
     reconnectRetryWaitInMsecs: RECONNECT_INTERVAL,
     generateSequenceNumber: true,
     applicationDescription: 'Route Optimizer',
-    logLevel: solace.LogLevel.TRACE, // Set to TRACE for maximum logging
+    logLevel: solace.LogLevel.DEBUG,
     ssl: {
       enabled: true,
       validateCertificate: false,
@@ -46,5 +45,4 @@ export const sessionProperties = (config: {
   };
 };
 
-// Alias for backward compatibility
 export const createSessionProperties = sessionProperties;
