@@ -1,16 +1,14 @@
 import * as solaceModule from 'solclientjs';
+import { supabase } from "@/integrations/supabase/client";
 
 // Create a local reference to the solace module after initialization
 const factoryProps = new solaceModule.SolclientFactoryProperties();
 factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
 solaceModule.SolclientFactory.init(factoryProps);
 
-// Use the initialized solace module
-const solace = solaceModule;
-
 class SolaceClient {
   private static instance: SolaceClient;
-  private session: typeof solace.Session | null = null;
+  private session: solaceModule.Session | null = null;
   private connected: boolean = false;
 
   private constructor() {}
@@ -31,33 +29,42 @@ class SolaceClient {
       }
 
       // Create session
-      const properties = new solace.SessionProperties({
+      const properties = new solaceModule.SessionProperties({
         url: SOLACE_HOST_URL,
         vpnName: SOLACE_VPN_NAME,
         userName: SOLACE_USERNAME,
         password: '', // We'll handle this securely through the edge function
       });
 
-      this.session = solace.SolclientFactory.createSession(properties);
+      this.session = solaceModule.SolclientFactory.createSession(properties);
 
       // Define event listeners
-      this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
-        this.connected = true;
-        console.log('Solace client connected');
-      });
+      if (this.session) {
+        this.session.on(solaceModule.SessionEventCode.UP_NOTICE, () => {
+          this.connected = true;
+          console.log('Solace client connected');
+        });
 
-      this.session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, () => {
-        this.connected = false;
-        console.error('Solace connection failed');
-      });
+        this.session.on(solaceModule.SessionEventCode.CONNECT_FAILED_ERROR, () => {
+          this.connected = false;
+          console.error('Solace connection failed');
+        });
 
-      this.session.on(solace.SessionEventCode.DISCONNECTED, () => {
-        this.connected = false;
-        console.log('Solace client disconnected');
-      });
+        this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
+          this.connected = false;
+          console.log('Solace client disconnected');
+        });
 
-      // Connect
-      this.session.connect();
+        // Connect
+        await new Promise<void>((resolve, reject) => {
+          try {
+            this.session?.connect();
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
     } catch (error) {
       console.error('Error connecting to Solace:', error);
       throw error;
@@ -82,10 +89,10 @@ class SolaceClient {
     }
 
     try {
-      const msg = solace.SolclientFactory.createMessage();
-      msg.setDestination(solace.SolclientFactory.createTopicDestination(topic));
+      const msg = solaceModule.SolclientFactory.createMessage();
+      msg.setDestination(solaceModule.SolclientFactory.createTopicDestination(topic));
       msg.setBinaryAttachment(message);
-      msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+      msg.setDeliveryMode(solaceModule.MessageDeliveryModeType.DIRECT);
       this.session.send(msg);
     } catch (error) {
       console.error('Error publishing message:', error);
@@ -100,7 +107,7 @@ class SolaceClient {
 
     try {
       this.session.subscribe(
-        solace.SolclientFactory.createTopicDestination(topic),
+        solaceModule.SolclientFactory.createTopicDestination(topic),
         true,
         topic,
         callback
