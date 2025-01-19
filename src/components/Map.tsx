@@ -46,15 +46,24 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           description: "Ready to start route optimization",
         });
 
-        // Only pass serializable data in the callback
+        // Pass only primitive values and arrays in the callback
         if (onRouteUpdate) {
-          const serializedData = {
-            status: 'loaded',
-            center: map.current?.getCenter().toArray(),
-            zoom: map.current?.getZoom(),
-            bounds: map.current?.getBounds().toArray()
-          };
-          onRouteUpdate(serializedData);
+          const currentMap = map.current;
+          if (currentMap) {
+            const center = currentMap.getCenter();
+            const bounds = currentMap.getBounds();
+            
+            const serializedData = {
+              status: 'loaded',
+              center: [center.lng, center.lat],
+              zoom: currentMap.getZoom(),
+              bounds: [
+                [bounds.getWest(), bounds.getSouth()],
+                [bounds.getEast(), bounds.getNorth()]
+              ]
+            };
+            onRouteUpdate(serializedData);
+          }
         }
       });
 
