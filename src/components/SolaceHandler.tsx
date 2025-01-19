@@ -20,7 +20,7 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         duration: 3000,
       });
       
-      // Subscribe to traffic updates
+      // Subscribe to traffic updates with detailed logging
       console.log('Subscribing to traffic/updates topic...');
       solaceClient.subscribe('traffic/updates', (message) => {
         try {
@@ -28,20 +28,21 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
           const messageStr = typeof binaryAttachment === 'string' 
             ? binaryAttachment 
             : new TextDecoder().decode(binaryAttachment);
+          console.log('Received raw traffic update:', messageStr);
           const trafficData = JSON.parse(messageStr) as TrafficUpdate;
-          console.log('Received traffic update:', trafficData);
+          console.log('Parsed traffic update:', trafficData);
           onTrafficUpdate(trafficData);
         } catch (error) {
           console.error('Error processing traffic update:', error);
           toast({
             title: "Error",
-            description: "Failed to process traffic update",
+            description: "Failed to process traffic update: " + (error as Error).message,
             variant: "destructive",
           });
         }
       });
 
-      // Subscribe to route updates
+      // Subscribe to route updates with detailed logging
       console.log('Subscribing to routes/updates topic...');
       solaceClient.subscribe('routes/updates', (message) => {
         try {
@@ -49,14 +50,15 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
           const messageStr = typeof binaryAttachment === 'string' 
             ? binaryAttachment 
             : new TextDecoder().decode(binaryAttachment);
+          console.log('Received raw route update:', messageStr);
           const routeData = JSON.parse(messageStr);
-          console.log('Received route update:', routeData);
+          console.log('Parsed route update:', routeData);
           onRouteUpdate(routeData);
         } catch (error) {
           console.error('Error processing route update:', error);
           toast({
             title: "Error",
-            description: "Failed to process route update",
+            description: "Failed to process route update: " + (error as Error).message,
             variant: "destructive",
           });
         }
@@ -68,14 +70,16 @@ const SolaceHandler: React.FC<SolaceHandlerProps> = ({ onTrafficUpdate, onRouteU
         title: "Disconnected",
         description: "Lost connection to real-time updates",
         variant: "destructive",
+        duration: 5000,
       });
     },
     onError: (error) => {
       console.error('Solace connection error:', error);
       toast({
         title: "Connection Error",
-        description: "Failed to connect to real-time updates",
+        description: `Failed to connect: ${error.message}`,
         variant: "destructive",
+        duration: 5000,
       });
     }
   });

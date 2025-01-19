@@ -17,7 +17,10 @@ export const sessionProperties = (config: {
   userName: string;
   password: string;
 }) => ({
-  url: `wss://${config.url}:443`,
+  // Ensure proper WebSocket URL formatting
+  url: config.url.startsWith('ws://') || config.url.startsWith('wss://') 
+    ? config.url 
+    : `wss://${config.url}:443`,
   vpnName: config.vpnName,
   userName: config.userName,
   password: config.password,
@@ -26,7 +29,12 @@ export const sessionProperties = (config: {
   reconnectRetryWaitInMsecs: RECONNECT_INTERVAL,
   generateSequenceNumber: true,
   applicationDescription: 'Route Optimizer',
-  logLevel: solace.LogLevel.DEBUG // Changed to DEBUG for better logging
+  logLevel: solace.LogLevel.DEBUG,
+  // Add SSL configuration
+  ssl: {
+    enabled: true,
+    validateCertificate: false,
+  }
 });
 
 // Alias for backward compatibility
