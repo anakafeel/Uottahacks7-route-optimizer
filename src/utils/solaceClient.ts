@@ -25,29 +25,16 @@ class SolaceClient {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
       if (configError || !config) {
-        console.error('Failed to get Solace configuration:', configError);
         throw new Error('Failed to get Solace configuration');
       }
 
-      console.log('Retrieved Solace configuration:', {
-        url: config.SOLACE_HOST_URL,
-        vpnName: config.SOLACE_VPN_NAME,
-        hasUsername: !!config.SOLACE_USERNAME,
-        hasPassword: !!config.SOLACE_PASSWORD
-      });
+      console.log('Retrieved Solace configuration successfully');
 
       const properties = sessionProperties({
         url: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
         userName: config.SOLACE_USERNAME,
         password: config.SOLACE_PASSWORD
-      });
-
-      console.log('Creating Solace session with properties:', {
-        url: properties.url,
-        vpnName: properties.vpnName,
-        hasUsername: !!properties.userName,
-        connectTimeout: properties.connectTimeoutInMsecs
       });
 
       this.session = solace.SolclientFactory.createSession(properties);
@@ -62,7 +49,7 @@ class SolaceClient {
           reject(new Error('Connection timeout'));
         }, properties.connectTimeoutInMsecs);
 
-        // Set up detailed event logging
+        // Set up event listeners before connecting
         this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
           clearTimeout(connectionTimeout);
           this.connected = true;
@@ -76,7 +63,7 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          console.error('Solace connection failed:', sessionEvent.toString());
+          console.error('Solace connection failed:', sessionEvent);
           reject(new Error(`Connection failed: ${sessionEvent.toString()}`));
         });
 
@@ -86,22 +73,12 @@ class SolaceClient {
           console.log('Disconnected from Solace');
         });
 
-        // Add more detailed event logging
-        this.session.on(solace.SessionEventCode.CONNECTING, () => {
-          console.log('Connecting to Solace...');
-        });
-
-        this.session.on(solace.SessionEventCode.SUBSCRIPTION_ERROR, (sessionEvent) => {
-          console.error('Subscription error:', sessionEvent.toString());
-        });
-
         try {
           console.log('Attempting to connect session...');
           this.session.connect();
         } catch (error) {
           clearTimeout(connectionTimeout);
           this.connecting = false;
-          console.error('Error during connect():', error);
           reject(error);
         }
       });
