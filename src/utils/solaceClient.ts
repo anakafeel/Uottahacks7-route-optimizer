@@ -34,22 +34,22 @@ class SolaceClient {
     try {
       const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
 
-      if (configError || !config?.SOLACE_HOST_URL || !config?.SOLACE_VPN_NAME || !config?.SOLACE_USERNAME) {
-        console.error('Invalid Solace configuration:', { config, error: configError });
-        throw new Error('Invalid Solace configuration');
+      if (configError || !config) {
+        throw new Error('Failed to get Solace configuration');
       }
 
       console.log('Retrieved Solace configuration:', {
         url: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
-        userName: config.SOLACE_USERNAME
+        userName: config.SOLACE_USERNAME,
+        // Don't log password
       });
 
       const properties = new solaceModule.SessionProperties({
         url: config.SOLACE_HOST_URL,
         vpnName: config.SOLACE_VPN_NAME,
         userName: config.SOLACE_USERNAME,
-        password: '', // Handled through edge function
+        password: config.SOLACE_PASSWORD,
         connectTimeoutInMsecs: this.connectionTimeout,
         reconnectRetries: 3,
         generateSendTimestamps: true,
@@ -75,13 +75,8 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = true;
           this.connecting = false;
-          console.log('Solace client connected successfully');
-          
-          // Reapply subscriptions if any
-          this.subscriptions.forEach((callback, topic) => {
-            this.resubscribe(topic, callback);
-          });
-          
+          console.log('Successfully connected to Solace');
+          this.reapplySubscriptions();
           resolve();
         });
 
@@ -89,17 +84,15 @@ class SolaceClient {
           clearTimeout(connectionTimeout);
           this.connected = false;
           this.connecting = false;
-          const errorMessage = sessionEvent instanceof Error 
-            ? sessionEvent.message 
-            : 'Connection failed';
-          console.error('Solace connection failed:', errorMessage);
-          reject(new Error(`Connection failed: ${errorMessage}`));
+          const error = sessionEvent instanceof Error ? sessionEvent : new Error('Connection failed');
+          console.error('Solace connection failed:', error);
+          reject(error);
         });
 
         this.session.on(solaceModule.SessionEventCode.DISCONNECTED, () => {
           this.connected = false;
           this.connecting = false;
-          console.log('Solace client disconnected');
+          console.log('Disconnected from Solace');
         });
 
         try {
@@ -108,7 +101,6 @@ class SolaceClient {
         } catch (error) {
           clearTimeout(connectionTimeout);
           this.connecting = false;
-          console.error('Error during session connect:', error);
           reject(error);
         }
       });
@@ -119,29 +111,17 @@ class SolaceClient {
     }
   }
 
-  private async resubscribe(topic: string, callback: (message: solaceModule.Message) => void) {
-    try {
-      if (this.session && this.connected) {
-        console.log(`Resubscribing to topic: ${topic}`);
+  private async reapplySubscriptions() {
+    if (!this.session || !this.connected) return;
+
+    for (const [topic, callback] of this.subscriptions.entries()) {
+      try {
         const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
         await this.session.subscribe(topicDestination, true, callback, 10000);
+        console.log(`Resubscribed to topic: ${topic}`);
+      } catch (error) {
+        console.error(`Error resubscribing to topic ${topic}:`, error);
       }
-    } catch (error) {
-      console.error(`Error resubscribing to topic ${topic}:`, error);
-    }
-  }
-
-  isConnected(): boolean {
-    return this.connected;
-  }
-
-  disconnect(): void {
-    if (this.session) {
-      this.session.disconnect();
-      this.session = null;
-      this.connected = false;
-      this.connecting = false;
-      this.subscriptions.clear();
     }
   }
 
@@ -153,12 +133,7 @@ class SolaceClient {
     try {
       console.log(`Subscribing to topic: ${topic}`);
       const topicDestination = solaceModule.SolclientFactory.createTopicDestination(topic);
-      this.session.subscribe(
-        topicDestination,
-        true,
-        callback,
-        10000
-      );
+      this.session.subscribe(topicDestination, true, callback, 10000);
       this.subscriptions.set(topic, callback);
     } catch (error) {
       console.error('Error subscribing to topic:', error);
@@ -181,6 +156,20 @@ class SolaceClient {
     } catch (error) {
       console.error('Error publishing message:', error);
       throw error;
+    }
+  }
+
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  disconnect(): void {
+    if (this.session) {
+      this.session.disconnect();
+      this.session = null;
+      this.connected = false;
+      this.connecting = false;
+      this.subscriptions.clear();
     }
   }
 }
