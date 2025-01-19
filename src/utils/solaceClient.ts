@@ -106,7 +106,7 @@ class SolaceClient {
     }
 
     try {
-      const messageCallback = (message: solaceModule.Message) => {
+      const subscribeCallback = (session: solaceModule.Session, message: solaceModule.Message) => {
         callback(message);
       };
 
@@ -114,7 +114,7 @@ class SolaceClient {
         solaceModule.SolclientFactory.createTopicDestination(topic),
         true,
         topic,
-        messageCallback
+        subscribeCallback
       );
     } catch (error) {
       console.error('Error subscribing to topic:', error);
