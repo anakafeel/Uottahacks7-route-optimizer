@@ -17,10 +17,21 @@ serve(async (req) => {
     const SOLACE_PASSWORD = Deno.env.get('SOLACE_PASSWORD')
 
     if (!SOLACE_HOST_URL || !SOLACE_VPN_NAME || !SOLACE_USERNAME || !SOLACE_PASSWORD) {
+      console.error('Missing Solace configuration:', {
+        hasHostUrl: !!SOLACE_HOST_URL,
+        hasVpnName: !!SOLACE_VPN_NAME,
+        hasUsername: !!SOLACE_USERNAME,
+        hasPassword: !!SOLACE_PASSWORD
+      })
       throw new Error('Missing required Solace configuration')
     }
 
-    console.log('Returning Solace configuration (with redacted password)')
+    console.log('Solace configuration retrieved successfully:', {
+      host: SOLACE_HOST_URL,
+      vpn: SOLACE_VPN_NAME,
+      username: SOLACE_USERNAME,
+      // Password redacted for security
+    })
 
     return new Response(
       JSON.stringify({

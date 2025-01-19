@@ -15,7 +15,7 @@ export const useSolaceConnection = ({
 }: SolaceConnectionProps) => {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const connectionAttempted = useRef(false);
-  const maxRetries = useRef(5);
+  const maxRetries = useRef(3);
   const retryCount = useRef(0);
   const retryTimeout = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
@@ -27,7 +27,17 @@ export const useSolaceConnection = ({
       setStatus('connecting');
 
       try {
+        console.log('Initiating Solace connection...');
+        const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
+
+        if (configError || !config) {
+          console.error('Failed to get Solace configuration:', configError);
+          throw new Error('Failed to get Solace configuration');
+        }
+
+        console.log('Retrieved Solace configuration, attempting to connect...');
         await solaceClient.connect();
+        
         console.log('Successfully connected to Solace PubSub+');
         setStatus('connected');
         retryCount.current = 0;
@@ -46,8 +56,14 @@ export const useSolaceConnection = ({
         if (retryCount.current < maxRetries.current) {
           retryCount.current++;
           connectionAttempted.current = false;
-          const retryDelay = Math.min(2000 * Math.pow(2, retryCount.current), 30000);
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount.current), 5000);
           console.log(`Retrying connection in ${retryDelay}ms (${retryCount.current}/${maxRetries.current})...`);
+          
+          toast({
+            title: "Connection Error",
+            description: `Retrying connection (${retryCount.current}/${maxRetries.current})...`,
+            duration: 3000,
+          });
           
           retryTimeout.current = setTimeout(initSolace, retryDelay);
         } else {
