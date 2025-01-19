@@ -9,7 +9,6 @@ const Index = () => {
   const [currentRoute, setCurrentRoute] = useState(null);
 
   const handleRouteUpdate = (route: any) => {
-    // Only show toast once on initial load
     if (!toastShown.current) {
       toastShown.current = true;
       toast({
@@ -21,8 +20,10 @@ const Index = () => {
   };
 
   return (
-    <div className="relative w-full h-screen bg-background overflow-hidden">
-      <Map onRouteUpdate={handleRouteUpdate} />
+    <div className="relative min-h-screen">
+      <div className="absolute inset-0 bg-background">
+        <Map onRouteUpdate={handleRouteUpdate} />
+      </div>
       <RoutePanel currentRoute={currentRoute} />
     </div>
   );
