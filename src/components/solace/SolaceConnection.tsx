@@ -57,9 +57,9 @@ export const useSolaceConnection = ({
 
     return () => {
       if (solaceClient.isConnected()) {
-        solaceClient.disconnect();
+/*         solaceClient.disconnect();
         setStatus('disconnected');
-        onDisconnect?.();
+        onDisconnect?.(); */
       }
     };
   }, [onConnect, onDisconnect, onError, toast]);

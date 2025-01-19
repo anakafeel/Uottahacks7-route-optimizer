@@ -2,6 +2,10 @@ import * as solace from 'solclientjs';
 import { supabase } from "@/integrations/supabase/client";
 import { initializeSolaceFactory, sessionProperties } from './solace/config';
 
+interface ExtendedSessionProperties extends solace.SessionProperties {
+  connectTimeoutInMsecs?: number; // Add your custom properties here
+}
+
 class SolaceClient {
   private session: solace.Session | null = null;
   private connected: boolean = false;
@@ -14,80 +18,69 @@ class SolaceClient {
 
   async connect(): Promise<void> {
     if (this.connected || this.connecting) {
-      console.log('Already connected or connecting to Solace');
-      return;
+        console.log("Already connected or connecting to Solace.");
+        return;
     }
 
     this.connecting = true;
-    console.log('Initiating Solace connection...');
+    console.log("Initiating Solace connection...");
 
     try {
-      const { data: config, error: configError } = await supabase.functions.invoke('get-solace-config');
+        const { data: config, error: configError } = await supabase.functions.invoke("get-solace-config");
 
-      if (configError || !config) {
-        throw new Error('Failed to get Solace configuration');
-      }
-
-      console.log('Retrieved Solace configuration successfully');
-
-      const properties = sessionProperties({
-        url: config.SOLACE_HOST_URL,
-        vpnName: config.SOLACE_VPN_NAME,
-        userName: config.SOLACE_USERNAME,
-        password: config.SOLACE_PASSWORD
-      });
-
-      this.session = solace.SolclientFactory.createSession(properties);
-
-      await new Promise<void>((resolve, reject) => {
-        if (!this.session) {
-          reject(new Error('Failed to create Solace session'));
-          return;
+        if (configError || !config) {
+            throw new Error("Failed to get Solace configuration");
         }
 
-        const connectionTimeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
-        }, properties.connectTimeoutInMsecs);
+        console.log("Retrieved Solace configuration", config);
 
-        // Set up event listeners before connecting
-        this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
-          clearTimeout(connectionTimeout);
-          this.connected = true;
-          this.connecting = false;
-          console.log('Successfully connected to Solace');
-          this.reapplySubscriptions();
-          resolve();
+        const properties = {
+          url: `wss://${config.SOLACE_HOST_URL}`,
+            vpnName: config.SOLACE_VPN_NAME,
+            userName: config.SOLACE_USERNAME,
+            password: config.SOLACE_PASSWORD,
+        };
+
+        this.session = solace.SolclientFactory.createSession(properties);
+
+        await new Promise<void>((resolve, reject) => {
+            if (!this.session) {
+                reject(new Error("Failed to create Solace session"));
+                return;
+            }
+
+            // Add manual timeout for the connection
+            const connectionTimeout = setTimeout(() => {
+                reject(new Error("Connection timed out"));
+            }, 15000);
+
+            this.session.on(solace.SessionEventCode.UP_NOTICE, () => {
+                clearTimeout(connectionTimeout);
+                this.connected = true;
+                this.connecting = false;
+                console.log("Successfully connected to Solace");
+                resolve();
+            });
+
+            this.session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (sessionEvent: solace.SessionEvent) => {
+              clearTimeout(connectionTimeout);
+              this.connected = false;
+              this.connecting = false;
+          
+              console.error("Connection failed:", sessionEvent.infoStr);
+              reject(new Error(`Connection failed: ${sessionEvent.infoStr}`));
+          });
+          
+            console.log("Attempting to connect session...");
+            this.session.connect(); // Start the connection
         });
-
-        this.session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (sessionEvent) => {
-          clearTimeout(connectionTimeout);
-          this.connected = false;
-          this.connecting = false;
-          console.error('Solace connection failed:', sessionEvent);
-          reject(new Error(`Connection failed: ${sessionEvent.toString()}`));
-        });
-
-        this.session.on(solace.SessionEventCode.DISCONNECTED, () => {
-          this.connected = false;
-          this.connecting = false;
-          console.log('Disconnected from Solace');
-        });
-
-        try {
-          console.log('Attempting to connect session...');
-          this.session.connect();
-        } catch (error) {
-          clearTimeout(connectionTimeout);
-          this.connecting = false;
-          reject(error);
-        }
-      });
     } catch (error) {
-      this.connecting = false;
-      console.error('Error connecting to Solace:', error);
-      throw error;
+        this.connecting = false;
+        console.error("Error connecting to Solace:", error);
+        throw error;
     }
-  }
+}
+
 
   private async reapplySubscriptions() {
     if (!this.session || !this.connected) return;
@@ -129,7 +122,7 @@ class SolaceClient {
       const msg = solace.SolclientFactory.createMessage();
       msg.setDestination(solace.SolclientFactory.createTopicDestination(topic));
       msg.setBinaryAttachment(message);
-      msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+      msg.setDeliveryMode(solace.MessageDeliveryModeType.PERSISTENT);
       this.session.send(msg);
     } catch (error) {
       console.error('Error publishing message:', error);
