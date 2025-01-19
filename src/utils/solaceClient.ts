@@ -1,6 +1,7 @@
-import { initializeSolaceFactory } from './solace/config';
+import { initializeSolaceFactory, createSessionProperties } from './solace/config';
 import { ConnectionManager } from './solace/connectionManager';
 import type { MessageCallback } from './solace/types';
+import { supabase } from "@/integrations/supabase/client";
 
 class SolaceClient {
   private static instance: SolaceClient;
