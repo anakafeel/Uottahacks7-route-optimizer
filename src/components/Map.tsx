@@ -76,6 +76,30 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     }
   };
 
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainer.current || initialized.current) return;
+
+    initialized.current = true;
+    
+    map.current = L.map(mapContainer.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+    }).setView([45.4215, -75.6972], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map.current);
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+        initialized.current = false;
+      }
+    };
+  }, []);
+
   // Initialize Solace connection
   useEffect(() => {
     const initSolace = async () => {
@@ -156,30 +180,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       }
     }, 5 * 60 * 1000);
   };
-
-  // Initialize map
-  useEffect(() => {
-    if (!mapContainer.current || initialized.current) return;
-
-    initialized.current = true;
-    
-    map.current = L.map(mapContainer.current, {
-      zoomControl: true,
-      scrollWheelZoom: true,
-    }).setView([45.4215, -75.6972], 13);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map.current);
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-        initialized.current = false;
-      }
-    };
-  }, []);
 
   return (
     <div className="relative w-full h-screen">
