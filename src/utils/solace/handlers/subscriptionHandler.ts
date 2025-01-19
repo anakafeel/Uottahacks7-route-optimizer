@@ -15,9 +15,8 @@ export class SubscriptionHandler {
       await new Promise<void>((resolve, reject) => {
         this.session.subscribe(
           topicDestination,
-          true, // Generate subscription request confirmation
-          topic, // Correlation key - using topic as identifier
-          requestConfirmation, // Request confirmation
+          true,
+          topic,
           (error) => {
             if (error) {
               console.error(`Error subscribing to ${topic}:`, error);
