@@ -135,7 +135,15 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
   return (
     <div className="relative w-full h-screen">
-      <div ref={mapContainer} className="absolute inset-0" style={{ zIndex: 0 }} />
+      <div 
+        ref={mapContainer} 
+        className="absolute inset-0 z-0"
+        style={{ 
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#f0f0f0' // Light background while map loads
+        }} 
+      />
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
         <p className="text-sm text-muted-foreground">Ottawa Region</p>
