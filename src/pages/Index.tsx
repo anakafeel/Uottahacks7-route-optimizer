@@ -17,7 +17,7 @@ const Index = () => {
   };
 
   return (
-    <div className="relative w-full h-screen bg-background">
+    <div className="relative w-full h-screen bg-background overflow-hidden">
       <Map onRouteUpdate={handleRouteUpdate} />
       <RoutePanel />
     </div>

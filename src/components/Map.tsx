@@ -23,47 +23,51 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    try {
-      map.current = L.map(mapContainer.current, {
-        zoomControl: true,
-        scrollWheelZoom: true,
-      }).setView([45.4215, -75.6972], 13);
+    // Add a small delay to ensure container is ready
+    const timer = setTimeout(() => {
+      try {
+        map.current = L.map(mapContainer.current!, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+        }).setView([45.4215, -75.6972], 13);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map.current);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map.current);
 
-      toast({
-        title: "Map loaded successfully",
-        description: "Ready to start route optimization",
-      });
+        // Only trigger route update once on initial load
+        if (onRouteUpdate && map.current) {
+          const center = map.current.getCenter();
+          const bounds = map.current.getBounds();
+          
+          onRouteUpdate({
+            status: 'loaded',
+            centerLng: center.lng,
+            centerLat: center.lat,
+            zoom: map.current.getZoom(),
+            bounds: {
+              west: bounds.getWest(),
+              south: bounds.getSouth(),
+              east: bounds.getEast(),
+              north: bounds.getNorth()
+            }
+          });
+        }
 
-      // Only trigger route update once on initial load
-      if (onRouteUpdate && map.current) {
-        const center = map.current.getCenter();
-        const bounds = map.current.getBounds();
-        
-        onRouteUpdate({
-          status: 'loaded',
-          centerLng: center.lng,
-          centerLat: center.lat,
-          zoom: map.current.getZoom(),
-          bounds: {
-            west: bounds.getWest(),
-            south: bounds.getSouth(),
-            east: bounds.getEast(),
-            north: bounds.getNorth()
-          }
+        // Invalidate size after a short delay to ensure proper rendering
+        setTimeout(() => {
+          map.current?.invalidateSize();
+        }, 100);
+
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        toast({
+          title: "Map Initialization Error",
+          description: error instanceof Error ? error.message : "Failed to initialize map",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error('Error initializing map:', error);
-      toast({
-        title: "Map Initialization Error",
-        description: error instanceof Error ? error.message : "Failed to initialize map",
-        variant: "destructive",
-      });
-    }
+    }, 100);
 
     return () => {
       if (map.current) {
@@ -121,8 +125,8 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-[500px]">
-      <div ref={mapContainer} className="absolute inset-0" />
+    <div className="relative w-full h-screen">
+      <div ref={mapContainer} className="absolute inset-0" style={{ zIndex: 0 }} />
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
         <p className="text-sm text-muted-foreground">Ottawa Region</p>
