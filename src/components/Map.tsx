@@ -3,10 +3,14 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
 interface MapProps {
   onRouteUpdate?: (route: any) => void;
 }
+
+type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
 
 const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -14,6 +18,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const { toast } = useToast();
   const hasShownError = useRef(false);
   const markers = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const handleMapLoad = useCallback(() => {
     if (!map.current) return;
@@ -55,10 +60,10 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           schema: 'public',
           table: 'drivers'
         },
-        (payload) => {
+        (payload: { new: DriverUpdate }) => {
           if (!map.current) return;
 
-          const { new: driver } = payload;
+          const driver = payload.new;
           if (driver.current_lat && driver.current_lng) {
             // Update or create marker for driver
             if (markers.current[driver.id]) {
@@ -81,8 +86,12 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
   }, []);
 
