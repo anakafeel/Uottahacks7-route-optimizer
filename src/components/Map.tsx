@@ -13,7 +13,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || map.current) return; // Prevent re-initialization if map exists
 
     // Using a public token for demo purposes - replace with your own token in production
     mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
@@ -40,34 +40,31 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       });
       map.current.addControl(geolocate, 'top-right');
 
-      map.current.on('load', () => {
+      const currentMap = map.current;
+      currentMap.on('load', () => {
         toast({
           title: "Map loaded successfully",
           description: "Ready to start route optimization",
         });
 
-        // Pass only primitive values and arrays in the callback
         if (onRouteUpdate) {
-          const currentMap = map.current;
-          if (currentMap) {
-            const center = currentMap.getCenter();
-            const bounds = currentMap.getBounds();
-            
-            const serializedData = {
-              status: 'loaded',
-              center: [center.lng, center.lat],
-              zoom: currentMap.getZoom(),
-              bounds: [
-                [bounds.getWest(), bounds.getSouth()],
-                [bounds.getEast(), bounds.getNorth()]
-              ]
-            };
-            onRouteUpdate(serializedData);
-          }
+          const center = currentMap.getCenter();
+          const bounds = currentMap.getBounds();
+          
+          const serializedData = {
+            status: 'loaded',
+            center: [center.lng, center.lat],
+            zoom: currentMap.getZoom(),
+            bounds: [
+              [bounds.getWest(), bounds.getSouth()],
+              [bounds.getEast(), bounds.getNorth()]
+            ]
+          };
+          onRouteUpdate(serializedData);
         }
       });
 
-      map.current.on('error', (e) => {
+      currentMap.on('error', (e) => {
         const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
         toast({
           title: "Map Error",
@@ -91,7 +88,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         map.current = null;
       }
     };
-  }, [toast, onRouteUpdate]);
+  }, []); // Empty dependency array since we only want to initialize once
 
   return (
     <div className="relative w-full h-screen">
