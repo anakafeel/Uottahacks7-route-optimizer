@@ -29,25 +29,33 @@ const Map = ({ onRouteUpdate }: MapProps) => {
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    // Clean up existing map instance if it exists
+    if (map.current) {
+      map.current.remove();
+      map.current = null;
+    }
 
-    // Create map instance
+    // Only initialize if container exists and map doesn't
+    if (!mapContainer.current) return;
+
     const initMap = () => {
-      if (!mapContainer.current) return;
-      
-      map.current = L.map(mapContainer.current, {
-        zoomControl: true,
-        scrollWheelZoom: true,
-      }).setView([45.4215, -75.6972], 13);
+      try {
+        map.current = L.map(mapContainer.current!, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+        }).setView([45.4215, -75.6972], 13);
 
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map.current);
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map.current);
 
-      // Only trigger route update once on initial load
-      if (onRouteUpdate) {
-        onRouteUpdate(mockRoute);
+        // Only trigger route update once on initial load
+        if (onRouteUpdate) {
+          onRouteUpdate(mockRoute);
+        }
+      } catch (error) {
+        console.error('Error initializing map:', error);
       }
     };
 
