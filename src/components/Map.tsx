@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
 interface MapProps {
@@ -14,38 +14,62 @@ type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
 
 const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<L.Map | null>(null);
   const { toast } = useToast();
-  const hasShownError = useRef(false);
-  const markers = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  const markers = useRef<{ [key: string]: L.Marker }>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const handleMapLoad = useCallback(() => {
-    if (!map.current) return;
-    
-    toast({
-      title: "Map loaded successfully",
-      description: "Ready to start route optimization",
-    });
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return;
 
-    if (onRouteUpdate) {
-      const center = map.current.getCenter();
-      const bounds = map.current.getBounds();
-      
-      const routeData = {
-        status: 'loaded',
-        centerLng: center.lng,
-        centerLat: center.lat,
-        zoom: map.current.getZoom(),
-        bounds: {
-          west: bounds.getWest(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          north: bounds.getNorth()
+    try {
+      // Center on Ottawa
+      map.current = L.map(mapContainer.current).setView([45.4215, -75.6972], 13);
+
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map.current);
+
+      toast({
+        title: "Map loaded successfully",
+        description: "Ready to start route optimization",
+      });
+
+      if (onRouteUpdate) {
+        const center = map.current.getCenter();
+        const bounds = map.current.getBounds();
+        
+        const routeData = {
+          status: 'loaded',
+          centerLng: center.lng,
+          centerLat: center.lat,
+          zoom: map.current.getZoom(),
+          bounds: {
+            west: bounds.getWest(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            north: bounds.getNorth()
+          }
+        };
+        
+        onRouteUpdate(routeData);
+      }
+
+      return () => {
+        if (map.current) {
+          map.current.remove();
+          map.current = null;
         }
       };
-      
-      onRouteUpdate(routeData);
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      toast({
+        title: "Map Initialization Error",
+        description: error instanceof Error ? error.message : "Failed to initialize map",
+        variant: "destructive",
+      });
     }
   }, [onRouteUpdate, toast]);
 
@@ -60,26 +84,25 @@ const Map = ({ onRouteUpdate }: MapProps) => {
           schema: 'public',
           table: 'drivers'
         },
-        (payload: RealtimePostgresChangesPayload<DriverUpdate>) => {
+        (payload) => {
           if (!map.current) return;
 
-          const driver = payload.new as DriverUpdate;
-          if (driver && driver.id && driver.current_lat && driver.current_lng) {
+          const driver = payload.new;
+          if (driver?.id && driver?.current_lat && driver?.current_lng) {
             // Update or create marker for driver
             if (markers.current[driver.id]) {
-              markers.current[driver.id].setLngLat([driver.current_lng, driver.current_lat]);
+              markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
             } else {
-              const el = document.createElement('div');
-              el.className = 'driver-marker';
-              el.style.width = '20px';
-              el.style.height = '20px';
-              el.style.borderRadius = '50%';
-              el.style.backgroundColor = '#4CAF50';
-              el.style.border = '2px solid white';
+              // Create custom icon for driver marker
+              const driverIcon = L.divIcon({
+                className: 'driver-marker',
+                html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
+                iconSize: [20, 20]
+              });
 
-              markers.current[driver.id] = new mapboxgl.Marker(el)
-                .setLngLat([driver.current_lng, driver.current_lat])
-                .addTo(map.current);
+              markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
+                icon: driverIcon
+              }).addTo(map.current);
             }
           }
         }
@@ -95,47 +118,12 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!mapContainer.current || map.current) return;
-
-    try {
-      // We need to request a Mapbox access token through Supabase secrets
-      mapboxgl.accessToken = 'INVALID_TOKEN'; // Temporarily disable map initialization
-      
-      // Notify user about the invalid token
-      toast({
-        title: "Map Configuration Required",
-        description: "Please provide a valid Mapbox access token to enable the map functionality.",
-        variant: "destructive",
-      });
-
-      return () => {
-        Object.values(markers.current).forEach(marker => marker.remove());
-        markers.current = {};
-        map.current?.remove();
-        map.current = null;
-        hasShownError.current = false;
-      };
-
-    } catch (error) {
-      if (!hasShownError.current) {
-        console.error('Error initializing map:', error);
-        toast({
-          title: "Map Initialization Error",
-          description: error instanceof Error ? error.message : "Failed to initialize map",
-          variant: "destructive",
-        });
-        hasShownError.current = true;
-      }
-    }
-  }, [handleMapLoad, toast]);
-
   return (
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" />
       <div className="absolute top-4 left-4 bg-background/90 p-4 rounded-lg shadow-lg">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
-        <p className="text-sm text-muted-foreground">Map configuration required</p>
+        <p className="text-sm text-muted-foreground">Ottawa Region</p>
       </div>
     </div>
   );
