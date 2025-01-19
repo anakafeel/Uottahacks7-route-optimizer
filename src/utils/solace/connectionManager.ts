@@ -19,12 +19,19 @@ export class ConnectionManager {
   }
 
   async subscribe(topic: string, callback: MessageCallback): Promise<void> {
-    const subscriptionHandler = this.connectionHandler.getSubscriptionHandler();
-    if (!subscriptionHandler) {
-      throw new Error('Subscription handler not initialized');
+    if (!this.connectionHandler.isConnected()) {
+      throw new Error('Not connected to Solace');
     }
     
-    await subscriptionHandler.subscribe({ topic, callback });
+    try {
+      console.log(`Subscribing to topic: ${topic}`);
+      // Implementation using direct session subscription
+      // TODO: Add proper typing for session access
+      (this.connectionHandler as any).session?.subscribe(topic, callback);
+    } catch (error) {
+      console.error('Error subscribing to topic:', error);
+      throw error;
+    }
   }
 
   async publish(topic: string, message: string): Promise<void> {
