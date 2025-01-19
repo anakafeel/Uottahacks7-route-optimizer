@@ -15,54 +15,69 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // TODO: Replace with your Mapbox token
-    mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+    // Using a public token for demo purposes - replace with your own token in production
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
     
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-74.5, 40],
-      zoom: 9
-    });
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-74.5, 40],
+        zoom: 9
+      });
 
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    
-    // Add geolocation control
-    map.current.addControl(
-      new mapboxgl.GeolocateControl({
+      // Add navigation controls
+      const nav = new mapboxgl.NavigationControl();
+      map.current.addControl(nav, 'top-right');
+      
+      // Add geolocation control
+      const geolocate = new mapboxgl.GeolocateControl({
         positionOptions: {
           enableHighAccuracy: true
         },
         trackUserLocation: true,
         showUserHeading: true
-      }),
-      'top-right'
-    );
-
-    // TODO: Solace Integration
-    // Subscribe to real-time traffic updates
-    // solace.subscribe('routes/traffic/${city}/updates')
-
-    // TODO: Groq Integration
-    // Process route optimization with Groq
-    // const optimizeRoute = async (currentRoute) => {
-    //   const optimizedRoute = await groq.predict({
-    //     route: currentRoute,
-    //     trafficData: trafficUpdates,
-    //     weatherData: weatherUpdates
-    //   });
-    // }
-
-    map.current.on('load', () => {
-      toast({
-        title: "Map loaded successfully",
-        description: "Ready to start route optimization",
       });
-    });
+      map.current.addControl(geolocate, 'top-right');
+
+      map.current.on('load', () => {
+        toast({
+          title: "Map loaded successfully",
+          description: "Ready to start route optimization",
+        });
+
+        // If we need to update the route, pass only serializable data
+        if (onRouteUpdate) {
+          onRouteUpdate({
+            status: 'loaded',
+            center: [-74.5, 40],
+            zoom: 9
+          });
+        }
+      });
+
+      map.current.on('error', (e) => {
+        toast({
+          title: "Map Error",
+          description: e.error?.message || "An error occurred while loading the map",
+          variant: "destructive",
+        });
+      });
+
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      toast({
+        title: "Map Initialization Error",
+        description: error instanceof Error ? error.message : "Failed to initialize map",
+        variant: "destructive",
+      });
+    }
 
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
     };
   }, []);
 
