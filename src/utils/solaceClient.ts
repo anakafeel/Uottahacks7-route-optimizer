@@ -100,17 +100,21 @@ class SolaceClient {
     }
   }
 
-  subscribe(topic: string, callback: (message: any) => void): void {
+  subscribe(topic: string, callback: (message: solaceModule.Message) => void): void {
     if (!this.session || !this.connected) {
       throw new Error('Not connected to Solace');
     }
 
     try {
+      const messageCallback = (session: solaceModule.Session, message: solaceModule.Message) => {
+        callback(message);
+      };
+
       this.session.subscribe(
         solaceModule.SolclientFactory.createTopicDestination(topic),
         true,
         topic,
-        callback
+        messageCallback
       );
     } catch (error) {
       console.error('Error subscribing to topic:', error);
