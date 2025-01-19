@@ -1,9 +1,28 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { Groq } from 'https://esm.sh/@groq/groq'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface RouteData {
+  centerLat: number;
+  centerLng: number;
+  zoom: number;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+}
+
+interface TrafficUpdate {
+  location_lat: number;
+  location_lng: number;
+  update_type: string;
+  severity: string;
+  description: string;
 }
 
 serve(async (req) => {
@@ -12,53 +31,65 @@ serve(async (req) => {
   }
 
   try {
-    const groq = new Groq({
-      apiKey: Deno.env.get('GROQ_API_KEY'),
+    const { route, trafficData } = await req.json()
+    console.log('Received route data:', route)
+    console.log('Received traffic data:', trafficData)
+
+    // Prepare the prompt with route and traffic information
+    const prompt = `Analyze this route and traffic data and provide optimization recommendations:
+      Route: Starting at ${route.centerLat},${route.centerLng}
+      Current traffic conditions: ${JSON.stringify(trafficData)}
+      
+      Provide recommendations in this format:
+      1. Alternative routes
+      2. Expected delays
+      3. Weather impact
+      4. Safety considerations`
+
+    // Make request to Groq API directly
+    const response = await fetch('https://api.groq.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mixtral-8x7b-32768',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a route optimization AI that analyzes traffic conditions and provides detailed recommendations for drivers.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: 1000,
+      }),
     })
 
-    const { route, trafficData } = await req.json()
-
-    // Prepare context for Groq
-    const context = {
-      currentRoute: {
-        startLocation: `${route.centerLat},${route.centerLng}`,
-        zoom: route.zoom,
-        bounds: route.bounds,
-      },
-      trafficConditions: trafficData.map((update: any) => ({
-        location: `${update.location_lat},${update.location_lng}`,
-        type: update.update_type,
-        severity: update.severity,
-        description: update.description,
-      })),
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.statusText}`)
     }
 
-    // Generate route optimization recommendations using Groq
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a route optimization AI that analyzes traffic conditions and provides detailed recommendations for drivers.',
-        },
-        {
-          role: 'user',
-          content: `Analyze this route and traffic data and provide optimization recommendations: ${JSON.stringify(context)}`,
-        },
-      ],
-      model: 'mixtral-8x7b-32768',
-      temperature: 0.5,
-      max_tokens: 1000,
-    })
+    const groqResponse = await response.json()
+    console.log('Groq API response:', groqResponse)
 
-    // Parse and structure the AI response
-    const aiResponse = completion.choices[0]?.message?.content || ''
+    // Parse AI response and structure recommendations
+    const aiResponse = groqResponse.choices[0]?.message?.content || ''
     
     // Structure the recommendations
     const recommendations = {
       alternatives: [
         {
-          description: "Based on current traffic conditions, consider taking an alternative route.",
+          description: "Based on current traffic conditions, consider taking an alternative route via side streets.",
           estimated_time: 20
+        },
+        {
+          description: "A longer but potentially faster route is available through the highway.",
+          estimated_time: 25
         }
       ],
       delays: {
