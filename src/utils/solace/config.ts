@@ -1,5 +1,9 @@
 import * as solaceModule from 'solclientjs';
 
+export const CONNECTION_TIMEOUT = 30000; // 30 seconds
+export const MAX_RECONNECT_ATTEMPTS = 5;
+export const RECONNECT_INTERVAL = 5000; // 5 seconds
+
 export const initializeSolaceFactory = () => {
   const factoryProps = new solaceModule.SolclientFactoryProperties();
   factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
@@ -13,16 +17,18 @@ export const createSessionProperties = (config: {
   password: string;
 }) => {
   return new solaceModule.SessionProperties({
-    url: config.url,
+    url: `wss://${config.url}:443`,
     vpnName: config.vpnName,
     userName: config.userName,
     password: config.password,
-    connectTimeoutInMsecs: 10000,
+    connectTimeoutInMsecs: CONNECTION_TIMEOUT,
     reconnectRetries: 3,
     generateSendTimestamps: true,
     generateReceiveTimestamps: true,
     reapplySubscriptions: true,
     keepAliveIntervalInMsecs: 3000,
     keepAliveIntervalsLimit: 10,
+    connectRetries: 3,
+    reconnectRetryWaitInMsecs: RECONNECT_INTERVAL,
   });
 };
