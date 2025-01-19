@@ -6,23 +6,26 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Get Solace configuration from environment variables
     const SOLACE_HOST_URL = Deno.env.get('SOLACE_HOST_URL')
     const SOLACE_VPN_NAME = Deno.env.get('SOLACE_VPN_NAME')
     const SOLACE_USERNAME = Deno.env.get('SOLACE_USERNAME')
+    const SOLACE_PASSWORD = Deno.env.get('SOLACE_PASSWORD')
 
-    // Return the configuration with CORS headers
+    if (!SOLACE_HOST_URL || !SOLACE_VPN_NAME || !SOLACE_USERNAME || !SOLACE_PASSWORD) {
+      throw new Error('Missing required Solace configuration')
+    }
+
     return new Response(
       JSON.stringify({
         SOLACE_HOST_URL,
         SOLACE_VPN_NAME,
         SOLACE_USERNAME,
+        SOLACE_PASSWORD,
       }),
       {
         headers: {
@@ -33,6 +36,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Error in get-solace-config function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       {
