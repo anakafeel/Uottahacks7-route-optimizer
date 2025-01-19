@@ -111,7 +111,6 @@ class SolaceClient {
         topicDestination,
         true, // Generate confirmation when subscription is added successfully
         topic, // Correlation key
-        10, // Request confirm timeout in seconds
         (session: solaceModule.Session, message: solaceModule.Message) => {
           callback(message);
         }
