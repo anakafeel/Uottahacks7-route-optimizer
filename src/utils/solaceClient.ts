@@ -1,14 +1,16 @@
-import { solace } from 'solclientjs';
-import { supabase } from "@/integrations/supabase/client";
+import * as solaceModule from 'solclientjs';
 
-// Initialize solace module
-const factoryProps = new solace.SolclientFactoryProperties();
-factoryProps.profile = solace.SolclientFactoryProfiles.version10;
-solace.SolclientFactory.init(factoryProps);
+// Create a local reference to the solace module after initialization
+const factoryProps = new solaceModule.SolclientFactoryProperties();
+factoryProps.profile = solaceModule.SolclientFactoryProfiles.version10;
+solaceModule.SolclientFactory.init(factoryProps);
+
+// Use the initialized solace module
+const solace = solaceModule;
 
 class SolaceClient {
   private static instance: SolaceClient;
-  private session: solace.Session | null = null;
+  private session: typeof solace.Session | null = null;
   private connected: boolean = false;
 
   private constructor() {}
@@ -74,7 +76,6 @@ class SolaceClient {
     }
   }
 
-  // Add methods for publishing and subscribing as needed
   async publish(topic: string, message: string): Promise<void> {
     if (!this.session || !this.connected) {
       throw new Error('Not connected to Solace');
