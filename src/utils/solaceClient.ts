@@ -76,7 +76,8 @@ class SolaceClient {
           this.connected = false;
           this.connecting = false;
           console.error('Solace connection failed:', sessionEvent);
-          reject(new Error(`Connection failed: ${sessionEvent.infoStr}`));
+          // Use toString() instead of accessing infoStr directly
+          reject(new Error(`Connection failed: ${sessionEvent.toString()}`));
         });
 
         this.session.on(solace.SessionEventCode.DISCONNECTED, () => {
