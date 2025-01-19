@@ -1,13 +1,11 @@
 import * as solaceModule from 'solclientjs';
 import type { Session, SessionProperties } from 'solclientjs';
-import { SubscriptionHandler } from './subscriptionHandler';
 
 export class ConnectionHandler {
   private session: Session | null = null;
   private connected: boolean = false;
   private connecting: boolean = false;
   private reconnectAttempts: number = 0;
-  private subscriptionHandler: SubscriptionHandler | null = null;
   
   async setupSession(properties: SessionProperties): Promise<void> {
     if (this.session) {
@@ -20,7 +18,6 @@ export class ConnectionHandler {
     }
 
     this.session = solaceModule.SolclientFactory.createSession(properties);
-    this.subscriptionHandler = new SubscriptionHandler(this.session);
     
     console.log('Created new Solace session with properties:', {
       url: properties.url,
@@ -81,7 +78,6 @@ export class ConnectionHandler {
       this.connecting = false;
       this.reconnectAttempts = 0;
       console.log('Successfully connected to Solace');
-      this.subscriptionHandler?.resubscribeAll();
       resolve();
     });
 
@@ -101,10 +97,6 @@ export class ConnectionHandler {
     });
   }
 
-  getSubscriptionHandler(): SubscriptionHandler | null {
-    return this.subscriptionHandler;
-  }
-
   isConnected(): boolean {
     return this.connected;
   }
@@ -119,7 +111,6 @@ export class ConnectionHandler {
         this.session = null;
         this.connected = false;
         this.connecting = false;
-        this.subscriptionHandler?.clearSubscriptions();
       }
     }
   }

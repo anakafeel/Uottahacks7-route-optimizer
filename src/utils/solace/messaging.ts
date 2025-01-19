@@ -3,6 +3,7 @@ import options from "./messaging-options";
 
 class Messaging extends Paho.Client {
   private callbacks: ((message: Paho.Message) => void)[] = [];
+  private _connected: boolean = false;
 
   constructor() {
     super(
@@ -18,17 +19,36 @@ class Messaging extends Paho.Client {
     return new Promise((resolve, reject) => {
       const connectOptions = {
         ...options,
-        onSuccess: resolve,
+        onSuccess: () => {
+          this._connected = true;
+          resolve();
+        },
         onFailure: reject,
       };
-      this.connect(connectOptions);
+      super.connect(connectOptions);
     });
   }
 
+  connect(): Promise<void> {
+    return this.connectWithPromise();
+  }
+
   handleConnectionLost(responseObject: { errorCode: number; errorMessage?: string }) {
+    this._connected = false;
     if (responseObject.errorCode !== 0) {
       console.log("Connection lost with Solace Cloud:", responseObject.errorMessage);
     }
+  }
+
+  disconnect(): void {
+    if (this._connected) {
+      super.disconnect();
+      this._connected = false;
+    }
+  }
+
+  isConnected(): boolean {
+    return this._connected;
   }
 
   register(callback: (message: Paho.Message) => void) {
