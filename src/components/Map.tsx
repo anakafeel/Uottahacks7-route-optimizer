@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface MapProps {
   onRouteUpdate?: (route: any) => void;
@@ -11,6 +11,7 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
+  const hasShownError = useRef(false);
 
   const handleMapLoad = useCallback(() => {
     if (!map.current) return;
@@ -24,7 +25,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       const center = map.current.getCenter();
       const bounds = map.current.getBounds();
       
-      // Ensure we only pass primitive values
       const routeData = {
         status: 'loaded',
         centerLng: center.lng,
@@ -43,11 +43,12 @@ const Map = ({ onRouteUpdate }: MapProps) => {
   }, [onRouteUpdate, toast]);
 
   useEffect(() => {
+    // Prevent multiple initializations
     if (!mapContainer.current || map.current) return;
 
-    mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
-    
     try {
+      mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbHJzOXh4NGkwMXprMmp0YjB2dDhqemF0In0.yy5u7yEKEJ0ey3YsH4Fs5w';
+      
       const mapInstance = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/dark-v11',
@@ -78,13 +79,17 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       // Add event listeners
       mapInstance.once('load', handleMapLoad);
 
+      // Only show error toast once
       mapInstance.on('error', (e: any) => {
-        const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
-        toast({
-          title: "Map Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        if (!hasShownError.current) {
+          const errorMessage = e.error ? String(e.error) : "An error occurred while loading the map";
+          toast({
+            title: "Map Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          hasShownError.current = true;
+        }
       });
 
       // Cleanup function
@@ -92,16 +97,20 @@ const Map = ({ onRouteUpdate }: MapProps) => {
         if (mapInstance) {
           mapInstance.remove();
           map.current = null;
+          hasShownError.current = false;
         }
       };
 
     } catch (error) {
-      console.error('Error initializing map:', error);
-      toast({
-        title: "Map Initialization Error",
-        description: error instanceof Error ? error.message : "Failed to initialize map",
-        variant: "destructive",
-      });
+      if (!hasShownError.current) {
+        console.error('Error initializing map:', error);
+        toast({
+          title: "Map Initialization Error",
+          description: error instanceof Error ? error.message : "Failed to initialize map",
+          variant: "destructive",
+        });
+        hasShownError.current = true;
+      }
     }
   }, [handleMapLoad, toast]);
 
