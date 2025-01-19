@@ -2,22 +2,30 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import RouteLayer from './map/RouteLayer';
+import DriversLayer from './map/DriversLayer';
+import type { Route } from '@/types/route';
 
 interface MapProps {
-  onRouteUpdate?: (route: any) => void;
+  onRouteUpdate?: (route: Route) => void;
 }
-
-type DriverUpdate = Database['public']['Tables']['drivers']['Row'];
 
 const Map = ({ onRouteUpdate }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const { toast } = useToast();
-  const markers = useRef<{ [key: string]: L.Marker }>({});
-  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // Mock route data for testing
+  const mockRoute = {
+    id: '123',
+    start_lat: 45.4215,
+    start_lng: -75.6972,
+    end_lat: 45.4515,
+    end_lng: -75.6872,
+    traffic_level: 'medium',
+    estimated_duration: 25,
+    weather_conditions: 'clear'
+  };
 
   // Initialize map
   useEffect(() => {
@@ -34,38 +42,6 @@ const Map = ({ onRouteUpdate }: MapProps) => {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map.current);
 
-    // Mock route data for testing
-    const mockRoute = {
-      id: '123',
-      start_lat: 45.4215,
-      start_lng: -75.6972,
-      end_lat: 45.4515,
-      end_lng: -75.6872,
-      traffic_level: 'medium',
-      estimated_duration: 25,
-      weather_conditions: 'clear'
-    };
-
-    // Draw the route on the map
-    const startMarker = L.marker([mockRoute.start_lat, mockRoute.start_lng])
-      .addTo(map.current)
-      .bindPopup('Start Point');
-
-    const endMarker = L.marker([mockRoute.end_lat, mockRoute.end_lng])
-      .addTo(map.current)
-      .bindPopup('End Point');
-
-    const routeLine = L.polyline(
-      [[mockRoute.start_lat, mockRoute.start_lng], [mockRoute.end_lat, mockRoute.end_lng]],
-      { color: 'blue', weight: 3 }
-    ).addTo(map.current);
-
-    const bounds = L.latLngBounds([
-      [mockRoute.start_lat, mockRoute.start_lng],
-      [mockRoute.end_lat, mockRoute.end_lng]
-    ]);
-    map.current.fitBounds(bounds, { padding: [50, 50] });
-
     // Only trigger route update once on initial load
     if (onRouteUpdate) {
       onRouteUpdate(mockRoute);
@@ -80,63 +56,19 @@ const Map = ({ onRouteUpdate }: MapProps) => {
     };
   }, [onRouteUpdate]);
 
-  // Subscribe to real-time driver updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('drivers-location')
-      .on<DriverUpdate>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        (payload) => {
-          if (!map.current) return;
-
-          const driver = payload.new as DriverUpdate;
-          
-          if (!driver || !driver.id || typeof driver.current_lat !== 'number' || typeof driver.current_lng !== 'number') {
-            console.warn('Invalid driver data received:', driver);
-            return;
-          }
-
-          if (markers.current[driver.id]) {
-            markers.current[driver.id].setLatLng([driver.current_lat, driver.current_lng]);
-          } else {
-            const driverIcon = L.divIcon({
-              className: 'driver-marker',
-              html: `<div style="width: 20px; height: 20px; border-radius: 50%; background-color: #4CAF50; border: 2px solid white;"></div>`,
-              iconSize: [20, 20]
-            });
-
-            markers.current[driver.id] = L.marker([driver.current_lat, driver.current_lng], {
-              icon: driverIcon
-            }).addTo(map.current);
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
-  }, []);
-
   return (
     <div className="relative w-full h-screen">
       <div 
         ref={mapContainer} 
-        className="absolute inset-0 z-0"
-        style={{ 
-          width: '100%',
-          height: '100%'
-        }} 
+        className="absolute inset-0 z-0 bg-gray-100"
+        style={{ width: '100%', height: '100%' }} 
       />
+      {map.current && (
+        <>
+          <RouteLayer map={map.current} route={mockRoute} />
+          <DriversLayer map={map.current} />
+        </>
+      )}
       <div className="absolute top-4 left-4 z-[1000] bg-background/90 p-4 rounded-lg shadow-lg backdrop-blur-sm border border-border">
         <h2 className="text-lg font-bold text-foreground">Route Optimizer</h2>
         <p className="text-sm text-muted-foreground">Ottawa Region</p>
