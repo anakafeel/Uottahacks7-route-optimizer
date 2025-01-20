@@ -58,10 +58,12 @@ const Map = ({ onRouteUpdate }: MapProps) => {
             map={map.current} 
             onRouteUpdate={onRouteUpdate} 
           />
-          <SolaceHandler
+          <div className="fixed bottom-5 left-1/2 transform -translate-x-1/2">
+          <SolaceHandler 
             onTrafficUpdate={handleTrafficUpdate}
             onRouteUpdate={console.log}
-          />
+            />
+            </div>
           {trafficUpdates.map((update, index) => (
             <TrafficMarker
               key={index}

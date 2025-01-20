@@ -87,7 +87,7 @@ const RoutePanel = ({ currentRoute, alternatives, onRouteSelect }: RoutePanelPro
       toast({
         title: "Optimization Error",
         description: "Failed to optimize route. Please try again.",
-        variant: "destructive",
+        variant: "destructive",  
       });
     } finally {
       setIsOptimizing(false);

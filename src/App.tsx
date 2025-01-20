@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import ChatBotWidget from './components/ui/ChatbotWidget';
+import ChatBotWidget from "./components/ui/ChatBotWidget";
 
 const queryClient = new QueryClient();
 
